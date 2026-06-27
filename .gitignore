@@ -1,0 +1,24 @@
+# Node / Vite / TypeScript
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# doc build artifacts (regenerate via npm run guide)
+*.pdf
+tools/docs/shots/
+FACET_User_Guide.docx
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude Code: ローカル個人設定はコミットしない(launch.json は共有設定なので含める)
+.claude/settings.local.json
+
