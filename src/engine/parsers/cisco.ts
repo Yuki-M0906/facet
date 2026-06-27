@@ -1,0 +1,226 @@
+/**
+ * Cisco IOS / IOS-XE running-config パーサ。
+ * 元: src/facet-core.js (legacy) の parseCisco。
+ * ロジックは無変更(型注釈のみ追加)。
+ *
+ * 既知の制約は docs/PARSER-NOTES.md 参照。Sprint 3 で精度向上予定。
+ */
+
+import { expandIfRange, expandVlans } from '../canonIf';
+import { subnetOf } from '../ip';
+import type { AclLine, CiscoParsed, ParsedInterface } from '../types';
+
+interface CurIf extends Omit<ParsedInterface, 'name'> {
+  /** interface range で複数 IF をまとめて構築するための一時 field */
+  names: string[];
+}
+
+interface InternalParsed extends CiscoParsed {
+  /** DHCP プール本文の取り込み中フラグ(キーは pool 名)。flush 時に削除する */
+  _dhcp?: string | null;
+}
+
+function mkif(names: string[]): CurIf {
+  return {
+    names,
+    sviVlan: (names[0]!.match(/^Vlan(\d+)/i) || [])[1] || null,
+    mode: null,
+    accessVlan: null,
+    trunkNative: null,
+    trunkAllowed: [],
+    channel: null,
+    ip: null,
+    mask: null,
+    secondary: [],
+    speed: null,
+    duplex: null,
+    mtu: null,
+    portfast: false,
+    bpduguard: false,
+    aclIn: null,
+    aclOut: null,
+    standby: null,
+    description: null,
+    shutdown: false,
+    /* SonicWall 由来の field は Cisco では使わないが、型整合のために null/[] で埋めておく */
+    vlanTag: null,
+    zone: null,
+  };
+}
+
+export function parseCisco(text: string): CiscoParsed {
+  const out: InternalParsed = {
+    hostname: null,
+    vlans: {},
+    interfaces: {},
+    svis: {},
+    stpMode: null,
+    defaultGw: null,
+    routes: [],
+    acls: {},
+    dhcp: {},
+    sec: {
+      telnet: false,
+      sshOnly: false,
+      enableSecret: false,
+      enablePassword: false,
+      snmpWeak: false,
+      pwEncrypt: false,
+    },
+  };
+
+  const lines = text.split(/\r?\n/);
+  let cur: CurIf | null = null;
+  let vl: string | null = null;
+  let curAcl: string | null = null;
+
+  function flush(): void {
+    if (cur) {
+      cur.names.forEach((nm) => {
+        const c: ParsedInterface = { name: nm } as ParsedInterface;
+        for (const k in cur!) {
+          if (k === 'names') continue;
+          // shallow copy; 配列だけ複製
+          const val = (cur as unknown as Record<string, unknown>)[k];
+          (c as unknown as Record<string, unknown>)[k] = Array.isArray(val) ? val.slice() : val;
+        }
+        out.interfaces[nm] = c;
+      });
+      cur = null;
+    }
+  }
+
+  for (let li = 0; li < lines.length; li++) {
+    const raw = lines[li]!;
+    const t = raw.replace(/\t/g, ' ').trim();
+    let m: RegExpMatchArray | null;
+
+    if ((m = t.match(/^hostname\s+(\S+)/))) { out.hostname = m[1]!; continue; }
+    if ((m = t.match(/^spanning-tree\s+mode\s+(\S+)/))) { out.stpMode = m[1]!; continue; }
+    if ((m = t.match(/^ip\s+default-gateway\s+([\d.]+)/))) { out.defaultGw = m[1]!; continue; }
+    if ((m = t.match(/^ip\s+route\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/))) {
+      out.routes.push({ dst: m[1]!, mask: m[2]!, nh: m[3]! });
+      continue;
+    }
+    if (/^no\s+service\s+password-encryption/.test(t)) { out.sec.pwEncrypt = false; continue; }
+    if (/^service\s+password-encryption/.test(t)) { out.sec.pwEncrypt = true; continue; }
+    if (/^enable\s+secret\b/.test(t)) { out.sec.enableSecret = true; continue; }
+    if (/^enable\s+password\b/.test(t)) { out.sec.enablePassword = true; continue; }
+    if ((m = t.match(/^snmp-server\s+community\s+(\S+)/))) {
+      if (/^(public|private)$/i.test(m[1]!)) out.sec.snmpWeak = true;
+      continue;
+    }
+    if ((m = t.match(/^transport\s+input\s+(.+)/))) {
+      if (/telnet/i.test(m[1]!)) out.sec.telnet = true;
+      if (/^ssh\s*$/i.test(m[1]!.trim())) out.sec.sshOnly = true;
+      continue;
+    }
+    if ((m = t.match(/^ip\s+access-list\s+\w+\s+(\S+)/))) {
+      curAcl = m[1]!;
+      out.acls[curAcl] = out.acls[curAcl] || [];
+      flush();
+      continue;
+    }
+    if ((m = t.match(/^access-list\s+(\S+)\s+(permit|deny)\s+(.+)/))) {
+      const id = m[1]!;
+      out.acls[id] = out.acls[id] || [];
+      out.acls[id]!.push({ action: m[2]!, rest: m[3]! });
+      continue;
+    }
+    if (curAcl && (m = t.match(/^(permit|deny)\s+(.+)/))) {
+      const acl: AclLine[] = out.acls[curAcl] || [];
+      acl.push({ action: m[1]!, rest: m[2]! });
+      out.acls[curAcl] = acl;
+      continue;
+    }
+    if ((m = t.match(/^ip\s+dhcp\s+pool\s+(\S+)/))) {
+      flush();
+      curAcl = null;
+      out._dhcp = m[1]!;
+      out.dhcp[m[1]!] = { network: null, gw: null };
+      continue;
+    }
+    if (out._dhcp) {
+      if ((m = t.match(/^network\s+([\d.]+)\s+([\d.]+)/))) {
+        out.dhcp[out._dhcp]!.network = subnetOf(m[1]!, m[2]!);
+        continue;
+      }
+      if ((m = t.match(/^default-router\s+([\d.]+)/))) {
+        out.dhcp[out._dhcp]!.gw = m[1]!;
+        continue;
+      }
+    }
+    if ((m = t.match(/^interface\s+range\s+(.+)/))) {
+      flush();
+      curAcl = null;
+      out._dhcp = null;
+      cur = mkif(expandIfRange(m[1]!));
+      continue;
+    }
+    if ((m = t.match(/^interface\s+(\S+)/))) {
+      flush();
+      curAcl = null;
+      out._dhcp = null;
+      cur = mkif([m[1]!]);
+      continue;
+    }
+    if (/^!/.test(t)) {
+      flush();
+      vl = null;
+      curAcl = null;
+      out._dhcp = null;
+      continue;
+    }
+    if (!cur) {
+      if ((m = t.match(/^vlan\s+([\d,\-]+)\s*$/))) {
+        vl = m[1]!;
+        expandVlans(m[1]!).forEach((v) => { if (!out.vlans[v]) out.vlans[v] = 'VLAN' + v; });
+        continue;
+      }
+      if ((m = t.match(/^name\s+(\S+)/)) && vl) {
+        const nm = m[1]!;
+        expandVlans(vl).forEach((v) => { out.vlans[v] = nm; });
+        vl = null;
+        continue;
+      }
+      continue;
+    }
+    if ((m = t.match(/^description\s+(.+)/))) cur.description = m[1]!;
+    else if (/switchport mode access/.test(t)) cur.mode = 'access';
+    else if (/switchport mode trunk/.test(t)) cur.mode = 'trunk';
+    else if ((m = t.match(/switchport access vlan\s+(\d+)/))) cur.accessVlan = m[1]!;
+    else if ((m = t.match(/switchport trunk native vlan\s+(\d+)/))) cur.trunkNative = m[1]!;
+    else if ((m = t.match(/switchport trunk allowed vlan\s+(?:add\s+)?([\d,\-]+)/))) {
+      cur.trunkAllowed = cur.trunkAllowed.concat(expandVlans(m[1]!));
+    } else if ((m = t.match(/channel-group\s+(\d+)\s+mode\s+(\S+)/))) {
+      cur.channel = { id: m[1]!, mode: m[2]! };
+    } else if ((m = t.match(/ip address\s+([\d.]+)\s+([\d.]+)\s+secondary/))) {
+      cur.secondary.push({ ip: m[1]!, mask: m[2]! });
+    } else if ((m = t.match(/ip address\s+([\d.]+)\s+([\d.]+)/))) {
+      cur.ip = m[1]!;
+      cur.mask = m[2]!;
+    } else if ((m = t.match(/^speed\s+(\d+|auto)/))) cur.speed = m[1]!;
+    else if ((m = t.match(/^duplex\s+(\S+)/))) cur.duplex = m[1]!;
+    else if ((m = t.match(/^mtu\s+(\d+)/))) cur.mtu = m[1]!;
+    else if ((m = t.match(/ip access-group\s+(\S+)\s+(in|out)/))) {
+      if (m[2] === 'in') cur.aclIn = m[1]!;
+      else cur.aclOut = m[1]!;
+    } else if ((m = t.match(/^standby\s+\d+\s+ip\s+([\d.]+)/))) {
+      cur.standby = m[1]!;
+    } else if (/spanning-tree portfast/.test(t) && !/disable/.test(t)) cur.portfast = true;
+    else if (/spanning-tree bpduguard enable/.test(t)) cur.bpduguard = true;
+    else if (/^shutdown$/.test(t)) cur.shutdown = true;
+  }
+  flush();
+
+  Object.keys(out.interfaces).forEach((k) => {
+    const i = out.interfaces[k]!;
+    if (i.sviVlan && i.ip) out.svis[i.sviVlan] = { ip: i.ip, mask: i.mask };
+  });
+
+  delete out._dhcp;
+  // 型から _dhcp を切り落として返す
+  const { _dhcp: _, ...clean } = out;
+  void _;
+  return clean;
+}
