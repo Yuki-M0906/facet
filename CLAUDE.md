@@ -95,6 +95,17 @@ Matrix cells: `ok` / `deny` / `nogw` / `self`(UI は ○/×/△/—)。
 - **サンプルは匿名化維持**(`src/samples/`):ACME-*、RFC1918、TEST-NET (203.0.113.x)。
   実機名・実 IP・実拠点名・実セキュリティ構成は絶対にコミットしない。
 - **ASCII-only filenames** for any committed file.
+- **ユーザ向けの挙動・機能を変更したら必ずバージョンを更新する**(過去に Sprint 2 /
+  Sprint 5 MVP / GUI ハードニングがバージョン番号を更新せずコミットされ、
+  CHANGELOG.md 上で同じ "v4.0.0" の下に異なる日付・内容が並存する事故があった)。
+  手順:
+  1. `package.json` の `version` を semver で更新(新機能=MINOR、修正/微調整=PATCH、
+     破壊的変更=MAJOR)。
+  2. `src/ui/versionHistory.ts` の `CURRENT_VERSION` と `VERSION_HISTORY` 配列の
+     **先頭に**新エントリを追加(両者は同じ値でなければならない)。
+  3. `CHANGELOG.md` に対応するプローズ形式のエントリを追加(番号・日付を揃える)。
+  4. `test/version.test.ts` が 1〜2 の整合性を機械的に検証する。ここが緑にならない
+     限り「更新し忘れ」は成立しない — この保証を壊すような変更(テストの緩和等)はしない。
 
 ## DEPRECATED されているもの(編集禁止、削除予定なし)
 

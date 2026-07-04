@@ -4,7 +4,21 @@
 
 ---
 
-## v4.0.0(継続)— 2026-07-04
+## v4.1.0 — 2026-07-04
+
+> **プロセス注記**: このエントリは Sprint 2 / Sprint 5 MVP / GUI ハードニングの
+> 3 つの作業をまとめて記録している。本来はそれぞれで `package.json` の version と
+> `src/ui/versionHistory.ts` を更新すべきだったが、当時は更新せずコミットしており、
+> 旧版の本ファイルでは同じ "v4.0.0" ラベルの下に日付違いのセクションが並存していた
+> (バージョン表記のあいまいさ)。本エントリで正しいバージョン番号(4.1.0)に是正し、
+> 以降は `test/version.test.ts` が `package.json` と `versionHistory.ts` の不一致を
+> 機械的に検出するため、同じ事故は起きない(CLAUDE.md 参照)。
+
+### プロセス — バージョン管理の厳格化
+- `src/ui/versionHistory.ts` を新設(バージョン履歴の単一ソース・オブ・トゥルース)。
+  ヘッダーのバージョンバッジをクリックするとバージョン履歴モーダルを表示。
+- `test/version.test.ts` で `package.json` の version と `versionHistory.ts` の
+  整合性を自動チェック。ずれると `npm test` が失敗する。テスト計 70 → 74 ケース。
 
 ### Sprint 2 — 機材カタログ実物化
 - SonicWall 全 7 SKU / Cisco 全 8 SKU の物理仕様を datasheet 精読で正確化
@@ -28,8 +42,19 @@
 - Cisco/SonicWall 双方の GUI フォーム(VLAN・ポート・FWルール・NAT等)を実装
 - 「⇩ ダウンロード」で生成テキストをそのまま実機投入可能
 - 往復保証テスト 20 ケース追加(`test/engine/builder.test.ts`)。テスト計 70 ケース
-- MVP スコープ外:capability 超過のリアルタイム入力制限、ACL/DHCP/HSRP ビルダー、
-  address-object range 型(いずれも Sprint 5 フォローアップで対応予定)
+
+### GUI ハードニング — Sprint 5 MVP のフォローアップ
+- **入力検証**(`src/ui/components/builder/validation.ts`):IP/マスク/VLAN ID/
+  hostname の形式チェック、赤枠+エラー文でインライン表示、不正時は生成ボタン無効化
+- **機種上限のリアルタイム警告**:VLAN数/SVI数(Cisco)、VLANサブIF数(SonicWall)を
+  capabilities と比較し、生成前にその場で警告
+- **バグ修正**:トポロジー再構成(`BUILD_TOPOLOGY`)時に古い `builderDrafts` が
+  残存し、実ポート数と不整合を起こす問題を修正
+- **データロス防止**:機種/台数変更で既存データが失われる唯一の箇所に確認ダイアログ、
+  機器ごとの個別リセットボタンを追加
+- **GUI デザイン刷新**:セクション見出しを `.eyebrow` と同じ金線トリートメントに統一、
+  ポート行をステータス色分け(access=emerald / trunk=gold / shutdown=garnet)、
+  カスタムチェックボックス、CSS Grid による整列、機器ごとの完成度サマリ表示
 
 ---
 

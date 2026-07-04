@@ -27,7 +27,8 @@ header.facet-header{position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);
 .mark{font-family:var(--serif);font-size:30px;letter-spacing:.42em;font-weight:500;background:linear-gradient(135deg,var(--gold-lt),var(--gold) 55%,var(--gold-dim));-webkit-background-clip:text;background-clip:text;color:transparent;padding-left:.42em}
 .mark::before{content:"\25C6";font-size:13px;margin-right:.5em;color:var(--gold);-webkit-text-fill-color:var(--gold)}
 .sub{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--muted)}
-.ver{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--gold-lt);background:rgba(201,168,106,.08);border:1px solid var(--hair-strong);padding:3px 9px;border-radius:999px;margin-left:8px;text-transform:uppercase;vertical-align:3px}
+.ver{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--gold-lt);background:rgba(201,168,106,.08);border:1px solid var(--hair-strong);padding:3px 9px;border-radius:999px;margin-left:8px;text-transform:uppercase;vertical-align:3px;cursor:pointer;transition:background .2s,border-color .2s}
+.ver:hover{background:rgba(201,168,106,.18);border-color:var(--gold)}
 .headmeta{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em;text-transform:uppercase}
 .stepper{border-top:1px solid var(--hair);background:rgba(0,0,0,.2)}
 .stepper .wrap{display:flex;gap:6px;padding:14px 28px;overflow-x:auto}
@@ -234,4 +235,23 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .port.topo-selected rect:first-child{stroke:var(--gold-lt)!important;stroke-width:2.5!important;filter:drop-shadow(0 0 6px rgba(230,205,148,.55))}
 .port.topo-linked rect:first-child{stroke:var(--emerald)!important}
 footer{border-top:1px solid var(--hair);padding:24px 0;color:var(--faint);font-size:11px;font-family:var(--mono);letter-spacing:.1em;text-align:center}
+
+/* バージョン履歴モーダル */
+.version-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto}
+.version-modal{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--hair-strong);border-radius:16px;padding:32px;max-width:720px;width:100%;box-shadow:var(--shadow);position:relative}
+.version-modal-close{position:absolute;top:20px;right:20px;cursor:pointer;color:var(--muted);font-size:16px;background:none;border:none;line-height:1;padding:4px}
+.version-modal-close:hover{color:var(--gold-lt)}
+.version-modal-title{font-family:var(--serif);font-size:28px;font-weight:500;margin-bottom:22px}
+.version-modal-list{max-height:70vh;overflow-y:auto;padding-right:4px}
+.version-entry{padding:18px 0;border-bottom:1px solid var(--hair)}
+.version-entry:first-child{padding-top:0}
+.version-entry:last-child{border-bottom:none;padding-bottom:0}
+.version-entry-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.version-badge{font-family:var(--serif);font-size:21px;color:var(--gold-lt);font-weight:500}
+.version-date{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.06em}
+.version-title{font-size:13.5px;color:var(--ink);font-weight:500}
+.version-changes{list-style:none;padding-left:0}
+.version-changes li{font-size:12.5px;color:var(--muted);font-weight:300;padding:4px 0 4px 18px;position:relative;line-height:1.65}
+.version-changes li::before{content:"—";position:absolute;left:0;color:var(--gold-dim)}
+
 @media print{header.facet-header,.stepper,.actions,footer,.btn{display:none!important}.panel{break-inside:avoid;box-shadow:none;border-color:#999}body{background:#fff;color:#111}}
