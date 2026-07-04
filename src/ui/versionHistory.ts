@@ -19,9 +19,30 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.2.0';
+export const CURRENT_VERSION = '4.3.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.3.0',
+    date: '2026-07-04',
+    title: 'Sprint 3 P3-2 — プラットフォーム判別(NX-OS/IOS-XE誤投入検知)',
+    changes: [
+      '[パーサ精度] parseCisco に platformHint(PlatformHint 型)を追加。投入コンフィグの' +
+        '構文シグナルから、選択機種の OS ファミリー(catalog.ts の osVersions)と矛盾しないかを検出。' +
+        '既存の抽出ロジックとは独立した追加スキャンで、ゼロ回帰を維持。',
+      '[検出内容] NX-OS 固有構文(feature / vdc / mgmt0 / vrf context / boot nxos 等、' +
+        'FACET のカタログに NX-OS 機器は無いため検出=対象外機種)、および Catalyst 9000系' +
+        '(IOS-XE)と 2960-X/1000系(classic IOS)を判別するライセンス階層名・Smart Licensing ' +
+        'クラスタ等。選択機種と矛盾する場合は CAP カテゴリで err を発火(機種取り違え・' +
+        'ファイル取り違えの早期発見)。',
+      '[誠実性] SonicOS 6/7 の CLI テキストレベルでの判別は、公式リファレンスガイドが取得不能で' +
+        '信頼できる根拠が見つからなかったため実装を見送り(docs/PARSER-NOTES.md に調査結果を明記)。' +
+        '確証の無い判定を主張しない方針を優先。非対応方言は既存の ParseCoverage の認識率低下で' +
+        '自然に可視化される。',
+      'テスト 12 ケース追加(NX-OS/IOS-XE/classic シグナル検出、CAP 突合、誤検出防止)。' +
+        'テスト計 81 → 93 ケース。',
+    ],
+  },
   {
     version: '4.2.0',
     date: '2026-07-04',

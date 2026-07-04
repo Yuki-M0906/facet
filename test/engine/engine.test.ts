@@ -428,6 +428,88 @@ describe('CAP — capabilities 未定義 SKU では何も発火しない', () =>
   });
 });
 
+describe('parseCisco — platformHint シグナル検出(Sprint 3 P3-2)', () => {
+  it('NX-OS シグナル(feature / vdc / mgmt0 / vrf context / boot nxos)を検出する', () => {
+    const cfg =
+      'hostname NXOS-TEST\nfeature ospf\nvdc TEST id 2\ninterface mgmt0\n ip address 10.0.0.1/24\n' +
+      'vrf context MGMT\nboot nxos bootflash:nxos.7.0.3.bin\n';
+    const p = parseCisco(cfg);
+    const signals = p.platformHint.signals.map((s) => s.signal);
+    expect(signals).toContain('nxos-feature');
+    expect(signals).toContain('nxos-vdc');
+    expect(signals).toContain('nxos-mgmt0');
+    expect(signals).toContain('nxos-vrf-context');
+    expect(signals).toContain('nxos-boot');
+  });
+  it('IOS-XE シグナル(license tier / install mode / platform fed)を検出する', () => {
+    const cfg =
+      'hostname IOSXE-TEST\nlicense boot level network-advantage\n' +
+      'boot system bootflash:packages.conf\nplatform punt-keepalive disable-kernel-core\n';
+    const p = parseCisco(cfg);
+    const signals = p.platformHint.signals.map((s) => s.signal);
+    expect(signals).toContain('iosxe-license-tier');
+    expect(signals).toContain('iosxe-install-mode');
+    expect(signals).toContain('iosxe-platform-fed');
+  });
+  it('classic IOS シグナル(license tier lanbase 等)を検出する', () => {
+    const p = parseCisco('hostname CLASSIC-TEST\nlicense boot level lanbase\n');
+    expect(p.platformHint.signals.map((s) => s.signal)).toContain('ios-classic-license-tier');
+  });
+  it('Smart Licensing はクラスタ(service call-home + license smart transport callhome)が揃って初めて検出', () => {
+    const partial = parseCisco('hostname PARTIAL\nservice call-home\n');
+    expect(partial.platformHint.signals.map((s) => s.signal)).not.toContain('iosxe-smart-licensing');
+    const full = parseCisco('hostname FULL\nservice call-home\nlicense smart transport callhome\n');
+    expect(full.platformHint.signals.map((s) => s.signal)).toContain('iosxe-smart-licensing');
+  });
+  it('license feature X(3トークン)は nxos-feature に誤検出しない', () => {
+    const p = parseCisco('hostname NOFALSEPOS\nlicense feature uck9\n');
+    expect(p.platformHint.signals.map((s) => s.signal)).not.toContain('nxos-feature');
+  });
+  it('通常のコンフィグ(SMP_C1)ではシグナルが 0 件', () => {
+    expect(c1.platformHint.signals.length).toBe(0);
+  });
+});
+
+describe('CAP — プラットフォーム判別ヒントと選択機種の突合(Sprint 3 P3-2)', () => {
+  const rmTz = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const swRouter = parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n');
+
+  function buildAndVerify(switchModelId: string, ciscoCfg: string) {
+    const model = CATALOG.switch.filter((x) => x.id === switchModelId)[0]!;
+    const rTz = makeDev('R1', 'router', rmTz, swRouter);
+    const swDev = makeDev('SW1', 'switch', model, parseCisco(ciscoCfg));
+    [rTz, swDev].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: rTz, switches: [swDev], devices: [rTz, swDev], topoMode: 'star', links: [] };
+    st.links = autoLinks(st);
+    return verify(st);
+  }
+
+  it('NX-OS シグナルが含まれる場合、機種によらず CAP err', () => {
+    const V = buildAndVerify('C9300-24', 'hostname X\nfeature ospf\n');
+    expect(V.findings.some((f) => f.cat === 'CAP' && f.level === 'err' && f.desc.includes('NX-OS'))).toBe(true);
+  });
+  it('classic IOS 機種(C2960X)に IOS-XE シグナルは CAP err', () => {
+    const V = buildAndVerify('C2960X-24', 'hostname X\nlicense boot level network-advantage\n');
+    expect(V.findings.some((f) => f.cat === 'CAP' && f.level === 'err' && f.desc.includes('IOS-XE'))).toBe(true);
+  });
+  it('IOS-XE 機種(C9300)に classic IOS シグナルは CAP err', () => {
+    const V = buildAndVerify('C9300-24', 'hostname X\nlicense boot level lanbase\n');
+    expect(V.findings.some((f) => f.cat === 'CAP' && f.level === 'err' && f.desc.includes('classic IOS'))).toBe(true);
+  });
+  it('IOS-XE 機種(C9300)に IOS-XE シグナルは矛盾なし(発火しない)', () => {
+    const V = buildAndVerify('C9300-24', 'hostname X\nlicense boot level network-advantage\n');
+    expect(V.findings.some((f) => f.cat === 'CAP' && (f.desc.includes('NX-OS') || f.desc.includes('IOS-XE') || f.desc.includes('classic IOS')))).toBe(false);
+  });
+  it('classic IOS 機種(C1000)に classic IOS シグナルは矛盾なし(発火しない)', () => {
+    const V = buildAndVerify('C1000-24', 'hostname X\nlicense boot level lanbase\n');
+    expect(V.findings.some((f) => f.cat === 'CAP' && (f.desc.includes('NX-OS') || f.desc.includes('IOS-XE') || f.desc.includes('classic IOS')))).toBe(false);
+  });
+  it('シグナルが無いコンフィグでは何も発火しない', () => {
+    const V = buildAndVerify('C9300-24', SMP_C1);
+    expect(V.findings.some((f) => f.cat === 'CAP' && (f.desc.includes('NX-OS') || f.desc.includes('IOS-XE') || f.desc.includes('classic IOS')))).toBe(false);
+  });
+});
+
 describe('shadowed / permissive', () => {
   const sw2 = parseSonicWall(
     'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +

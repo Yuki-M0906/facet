@@ -8,16 +8,64 @@
 
 import { expandIfRange, expandVlans } from '../canonIf';
 import { subnetOf } from '../ip';
-import type { AclLine, CiscoParsed, ParseCoverage, ParsedInterface } from '../types';
+import type { AclLine, CiscoParsed, ParseCoverage, ParsedInterface, PlatformHint, PlatformSignal } from '../types';
 
 interface CurIf extends Omit<ParsedInterface, 'name'> {
   /** interface range で複数 IF をまとめて構築するための一時 field */
   names: string[];
 }
 
-interface InternalParsed extends Omit<CiscoParsed, 'coverage'> {
+interface InternalParsed extends Omit<CiscoParsed, 'coverage' | 'platformHint'> {
   /** DHCP プール本文の取り込み中フラグ(キーは pool 名)。flush 時に削除する */
   _dhcp?: string | null;
+}
+
+/* ---- プラットフォーム判別(Sprint 3 P3-2) ----
+ * 既存の抽出ロジックとは完全に独立した追加スキャン。out/cur 等の状態には一切
+ * 触れず、生テキストを読むだけの純粋関数。判定根拠は docs/PARSER-NOTES.md と
+ * types.ts の PlatformHint コメントを参照(2026-07-04 時点のウェブ調査に基づく)。
+ */
+const NXOS_PATTERNS: Array<{ signal: PlatformSignal; re: RegExp }> = [
+  { signal: 'nxos-feature', re: /^feature\s+\S+\s*$/ },
+  { signal: 'nxos-feature-set', re: /^(install\s+)?feature-set\s+\S+\s*$/ },
+  { signal: 'nxos-vdc', re: /^vdc\s+\S+(\s+id\s+\d+)?\s*$/ },
+  { signal: 'nxos-mgmt0', re: /^interface\s+mgmt0\b/ },
+  { signal: 'nxos-vrf-context', re: /^(no\s+)?vrf\s+context\s+\S+\s*$/ },
+  { signal: 'nxos-boot', re: /^boot\s+(nxos|kickstart)\s+bootflash:/ },
+];
+const IOSXE_PATTERNS: Array<{ signal: PlatformSignal; re: RegExp }> = [
+  { signal: 'iosxe-install-mode', re: /^boot\s+system\s+(flash|bootflash):\S*packages\.conf\s*$/i },
+  { signal: 'iosxe-license-tier', re: /^license\s+boot\s+level\s+(network-essentials|network-advantage|dna-essentials|dna-advantage)\b/i },
+  { signal: 'iosxe-platform-fed', re: /^platform\s+(punt-keepalive|qos|ptp|sudi|tcam-limit)\b/i },
+];
+const IOS_CLASSIC_PATTERNS: Array<{ signal: PlatformSignal; re: RegExp }> = [
+  { signal: 'ios-classic-license-tier', re: /^license\s+boot\s+level\s+(lanbase|lanlite|ipservices)\b/i },
+];
+const SIMPLE_PATTERNS = [...NXOS_PATTERNS, ...IOSXE_PATTERNS, ...IOS_CLASSIC_PATTERNS];
+
+function detectPlatformHint(text: string): PlatformHint {
+  const signals: PlatformHint['signals'] = [];
+  let callHomeLine = -1;
+  let smartTransportLine = -1;
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const t = raw.replace(/\t/g, ' ').trim();
+    if (!t) return;
+    const hit = SIMPLE_PATTERNS.find((p) => p.re.test(t));
+    if (hit) { signals.push({ lineNumber: i + 1, text: t, signal: hit.signal }); return; }
+    if (/^service\s+call-home\s*$/i.test(t)) callHomeLine = i + 1;
+    else if (/^license\s+smart\s+transport\s+callhome\s*$/i.test(t)) smartTransportLine = i + 1;
+  });
+  /* Smart Licensing はどちらか一方だけでは一般的な構文(他製品ラインでも使われる)
+   * のため、クラスタ(service call-home + license smart transport callhome)が
+   * 揃って初めて IOS-XE(Catalyst 9000系)のシグナルとして扱う。 */
+  if (callHomeLine >= 0 && smartTransportLine >= 0) {
+    signals.push({
+      lineNumber: Math.min(callHomeLine, smartTransportLine),
+      text: 'service call-home + license smart transport callhome',
+      signal: 'iosxe-smart-licensing',
+    });
+  }
+  return { signals };
 }
 
 function mkif(names: string[]): CurIf {
@@ -246,5 +294,6 @@ export function parseCisco(text: string): CiscoParsed {
     unrecognizedLines: unrecognized,
     coveragePercent: totalLines > 0 ? Math.round(((totalLines - unrecognized.length) / totalLines) * 100) : 100,
   };
-  return { ...clean, coverage };
+  const platformHint = detectPlatformHint(text);
+  return { ...clean, coverage, platformHint };
 }
