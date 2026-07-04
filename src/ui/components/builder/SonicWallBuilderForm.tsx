@@ -1,0 +1,213 @@
+/**
+ * SonicWall ルータの GUI 構成フォーム(Phase 03 build mode)。
+ * device.ports(実カタログのポート列)をそのまま編集対象にする。
+ */
+
+import type { SonicWallBuilderDraft } from '@engine/types';
+
+interface Props {
+  draft: SonicWallBuilderDraft;
+  onChange: (draft: SonicWallBuilderDraft) => void;
+}
+
+export function SonicWallBuilderForm({ draft, onChange }: Props) {
+  function update(patch: Partial<SonicWallBuilderDraft>) {
+    onChange({ ...draft, ...patch });
+  }
+
+  function updateIf(i: number, patch: Partial<SonicWallBuilderDraft['interfaces'][number]>) {
+    const interfaces = draft.interfaces.map((x, idx) => (idx === i ? { ...x, ...patch } : x));
+    update({ interfaces });
+  }
+  function addVlanSub(i: number) {
+    const iface = draft.interfaces[i]!;
+    updateIf(i, { vlanSubs: [...iface.vlanSubs, { vlanTag: '', zone: 'LAN', ip: '', mask: '255.255.255.0', comment: '' }] });
+  }
+  function updateVlanSub(i: number, j: number, patch: Partial<SonicWallBuilderDraft['interfaces'][number]['vlanSubs'][number]>) {
+    const iface = draft.interfaces[i]!;
+    const vlanSubs = iface.vlanSubs.map((v, idx) => (idx === j ? { ...v, ...patch } : v));
+    updateIf(i, { vlanSubs });
+  }
+  function removeVlanSub(i: number, j: number) {
+    const iface = draft.interfaces[i]!;
+    updateIf(i, { vlanSubs: iface.vlanSubs.filter((_, idx) => idx !== j) });
+  }
+
+  function addAddrObj() {
+    update({ addressObjects: [...draft.addressObjects, { name: '', type: 'network', ip: '', mask: '255.255.255.0', zone: 'LAN' }] });
+  }
+  function updateAddrObj(i: number, patch: Partial<SonicWallBuilderDraft['addressObjects'][number]>) {
+    update({ addressObjects: draft.addressObjects.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
+  }
+  function removeAddrObj(i: number) {
+    update({ addressObjects: draft.addressObjects.filter((_, idx) => idx !== i) });
+  }
+
+  function addSvcObj() {
+    update({ serviceObjects: [...draft.serviceObjects, { name: '', proto: 'tcp', from: '', to: '' }] });
+  }
+  function updateSvcObj(i: number, patch: Partial<SonicWallBuilderDraft['serviceObjects'][number]>) {
+    update({ serviceObjects: draft.serviceObjects.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
+  }
+  function removeSvcObj(i: number) {
+    update({ serviceObjects: draft.serviceObjects.filter((_, idx) => idx !== i) });
+  }
+
+  function addRule() {
+    update({ rules: [...draft.rules, { from: 'LAN', to: 'WAN', action: 'allow', src: 'any', dst: 'any', service: 'any', enabled: true }] });
+  }
+  function updateRule(i: number, patch: Partial<SonicWallBuilderDraft['rules'][number]>) {
+    update({ rules: draft.rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) });
+  }
+  function removeRule(i: number) {
+    update({ rules: draft.rules.filter((_, idx) => idx !== i) });
+  }
+
+  function addNat() {
+    update({ natPolicies: [...draft.natPolicies, { orig: '', trans: 'WAN Primary IP', iface: draft.interfaces.find((i) => i.zone === 'WAN')?.iface ?? draft.interfaces[0]?.iface ?? '' }] });
+  }
+  function updateNat(i: number, patch: Partial<SonicWallBuilderDraft['natPolicies'][number]>) {
+    update({ natPolicies: draft.natPolicies.map((n, idx) => (idx === i ? { ...n, ...patch } : n)) });
+  }
+  function removeNat(i: number) {
+    update({ natPolicies: draft.natPolicies.filter((_, idx) => idx !== i) });
+  }
+
+  return (
+    <div>
+      <div className="builder-section">
+        <div className="builder-section-title">基本設定</div>
+        <div className="builder-row">
+          <span className="lbl">hostname</span>
+          <input type="text" value={draft.hostname} onChange={(e) => update({ hostname: e.target.value })} />
+        </div>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">インターフェース({draft.interfaces.length} ポート)</div>
+        <div className="builder-scroll">
+          {draft.interfaces.map((iface, i) => (
+            <div key={iface.iface}>
+              <div className="builder-row">
+                <label className="inline">
+                  <input type="checkbox" checked={iface.enabled} onChange={(e) => updateIf(i, { enabled: e.target.checked })} />
+                  <span className="lbl">{iface.iface}</span>
+                </label>
+                {iface.enabled && (
+                  <>
+                    <span className="lbl">Zone</span>
+                    <input type="text" value={iface.zone} placeholder="LAN / WAN / DMZ" onChange={(e) => updateIf(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
+                    <span className="lbl">IP</span>
+                    <input type="text" value={iface.ip} placeholder="192.168.1.1" onChange={(e) => updateIf(i, { ip: e.target.value })} />
+                    <span className="lbl">Mask</span>
+                    <input type="text" value={iface.mask} placeholder="255.255.255.0" onChange={(e) => updateIf(i, { mask: e.target.value })} />
+                    <button className="btn ghost sm" onClick={() => addVlanSub(i)}>+ VLAN サブIF</button>
+                  </>
+                )}
+              </div>
+              {iface.enabled && iface.vlanSubs.map((v, j) => (
+                <div className="builder-row" key={j} style={{ marginLeft: 24 }}>
+                  <span className="lbl">{iface.iface}:V</span>
+                  <input type="text" value={v.vlanTag} placeholder="10" onChange={(e) => updateVlanSub(i, j, { vlanTag: e.target.value })} style={{ maxWidth: 60 }} />
+                  <span className="lbl">Zone</span>
+                  <input type="text" value={v.zone} onChange={(e) => updateVlanSub(i, j, { zone: e.target.value })} style={{ maxWidth: 90 }} />
+                  <span className="lbl">IP</span>
+                  <input type="text" value={v.ip} placeholder="192.168.10.1" onChange={(e) => updateVlanSub(i, j, { ip: e.target.value })} />
+                  <span className="lbl">Mask</span>
+                  <input type="text" value={v.mask} onChange={(e) => updateVlanSub(i, j, { mask: e.target.value })} />
+                  <span className="x" onClick={() => removeVlanSub(i, j)}>✕</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">アドレスオブジェクト</div>
+        {draft.addressObjects.map((a, i) => (
+          <div className="builder-row" key={i}>
+            <input type="text" value={a.name} placeholder="net-staff" onChange={(e) => updateAddrObj(i, { name: e.target.value })} />
+            <select value={a.type} onChange={(e) => updateAddrObj(i, { type: e.target.value as 'host' | 'network' })}>
+              <option value="host">host</option>
+              <option value="network">network</option>
+            </select>
+            <span className="lbl">IP</span>
+            <input type="text" value={a.ip} placeholder="192.168.10.0" onChange={(e) => updateAddrObj(i, { ip: e.target.value })} />
+            {a.type === 'network' && (
+              <input type="text" value={a.mask} placeholder="255.255.255.0" onChange={(e) => updateAddrObj(i, { mask: e.target.value })} />
+            )}
+            <span className="lbl">Zone</span>
+            <input type="text" value={a.zone} placeholder="LAN" onChange={(e) => updateAddrObj(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
+            <span className="x" onClick={() => removeAddrObj(i)}>✕</span>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addAddrObj}>+ アドレスオブジェクト追加</button>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">サービスオブジェクト</div>
+        {draft.serviceObjects.map((s, i) => (
+          <div className="builder-row" key={i}>
+            <input type="text" value={s.name} placeholder="svc-https" onChange={(e) => updateSvcObj(i, { name: e.target.value })} />
+            <select value={s.proto} onChange={(e) => updateSvcObj(i, { proto: e.target.value })}>
+              <option value="tcp">tcp</option>
+              <option value="udp">udp</option>
+              <option value="icmp">icmp</option>
+            </select>
+            <span className="lbl">Port</span>
+            <input type="text" value={s.from} placeholder="443" onChange={(e) => updateSvcObj(i, { from: e.target.value, to: e.target.value })} style={{ maxWidth: 70 }} />
+            <span className="x" onClick={() => removeSvcObj(i)}>✕</span>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addSvcObj}>+ サービスオブジェクト追加</button>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">アクセスルール</div>
+        {draft.rules.map((r, i) => (
+          <div className="builder-row" key={i}>
+            <span className="lbl">from</span>
+            <input type="text" value={r.from} placeholder="LAN" onChange={(e) => updateRule(i, { from: e.target.value })} style={{ maxWidth: 80 }} />
+            <span className="lbl">to</span>
+            <input type="text" value={r.to} placeholder="WAN" onChange={(e) => updateRule(i, { to: e.target.value })} style={{ maxWidth: 80 }} />
+            <select value={r.action} onChange={(e) => updateRule(i, { action: e.target.value as 'allow' | 'deny' })}>
+              <option value="allow">allow</option>
+              <option value="deny">deny</option>
+            </select>
+            <span className="lbl">src</span>
+            <input type="text" value={r.src} placeholder="any" onChange={(e) => updateRule(i, { src: e.target.value })} style={{ maxWidth: 90 }} />
+            <span className="lbl">dst</span>
+            <input type="text" value={r.dst} placeholder="any" onChange={(e) => updateRule(i, { dst: e.target.value })} style={{ maxWidth: 90 }} />
+            <span className="lbl">svc</span>
+            <input type="text" value={r.service} placeholder="any" onChange={(e) => updateRule(i, { service: e.target.value })} style={{ maxWidth: 90 }} />
+            <label className="inline">
+              <input type="checkbox" checked={r.enabled} onChange={(e) => updateRule(i, { enabled: e.target.checked })} />
+              有効
+            </label>
+            <span className="x" onClick={() => removeRule(i)}>✕</span>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addRule}>+ ルール追加</button>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">NAT ポリシー</div>
+        {draft.natPolicies.map((n, i) => (
+          <div className="builder-row" key={i}>
+            <span className="lbl">送元</span>
+            <input type="text" value={n.orig} placeholder="net-staff / any" onChange={(e) => updateNat(i, { orig: e.target.value })} />
+            <span className="lbl">変換先</span>
+            <input type="text" value={n.trans} placeholder="WAN Primary IP" onChange={(e) => updateNat(i, { trans: e.target.value })} />
+            <span className="lbl">出力IF</span>
+            <select value={n.iface} onChange={(e) => updateNat(i, { iface: e.target.value })}>
+              {draft.interfaces.map((iface) => <option key={iface.iface} value={iface.iface}>{iface.iface}</option>)}
+            </select>
+            <span className="x" onClick={() => removeNat(i)}>✕</span>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addNat}>+ NAT ポリシー追加</button>
+      </div>
+    </div>
+  );
+}

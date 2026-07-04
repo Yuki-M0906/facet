@@ -232,11 +232,11 @@ export function PhaseResults() {
           <button
             className="btn ghost"
             onClick={() => {
-              dispatch({ type: 'CLEAR_INTAKE' });
-              dispatch({ type: 'NAV', phase: 'upload' });
+              if (state.mode !== 'build') dispatch({ type: 'CLEAR_INTAKE' });
+              dispatch({ type: 'NAV', phase: state.mode === 'build' ? 'build' : 'upload' });
             }}
           >
-            ⟲ 再投入
+            {state.mode === 'build' ? '⟲ 再編集' : '⟲ 再投入'}
           </button>
         )}
         {clean && (

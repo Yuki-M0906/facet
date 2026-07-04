@@ -11,6 +11,8 @@ import { createContext, useContext, useMemo, useReducer, type ReactNode } from '
 import {
   CATALOG,
   autoLinks,
+  generateCiscoConfig,
+  generateSonicWallConfig,
   mapToPorts,
   parseCisco,
   parseSonicWall,
@@ -19,24 +21,28 @@ import {
 } from '@engine/index';
 import type {
   AppState,
+  BuilderDraft,
+  CiscoBuilderDraft,
   Device,
   FindingCategory,
   Link,
   Mode,
   RouterCatalog,
+  SonicWallBuilderDraft,
   SwitchCatalog,
   TopoMode,
   VerifyResult,
 } from '@engine/types';
 import { SMP_C1, SMP_C2, SMP_SW } from '../samples';
 
-export type PhaseId = 'mode' | 'select' | 'topo' | 'upload' | 'analyze' | 'results' | 'complete';
+export type PhaseId = 'mode' | 'select' | 'topo' | 'upload' | 'build' | 'analyze' | 'results' | 'complete';
 
 export const PHASE_STEP: Record<PhaseId, number> = {
   mode: 0,
   select: 1,
   topo: 2,
   upload: 3,
+  build: 3,
   analyze: 4,
   results: 4,
   complete: 5,
@@ -64,6 +70,8 @@ export interface UIState {
   topoMode: TopoMode;
   links: Link[];
   topoSel: { key: string; iface: string } | null;
+  /* Phase 03(build mode)— 機器キーごとの編集中 draft */
+  builderDrafts: Record<string, BuilderDraft>;
   /* Phase 05 — 検証結果 */
   result: VerifyResult | null;
   filter: FindingCategory | 'all';
@@ -84,6 +92,9 @@ export type Action =
   | { type: 'INGEST'; key: string; text: string }
   | { type: 'LOAD_SAMPLES' }
   | { type: 'CLEAR_INTAKE' }
+  | { type: 'INIT_BUILDER_DRAFTS' }
+  | { type: 'SET_BUILDER_DRAFT'; key: string; draft: BuilderDraft }
+  | { type: 'GENERATE_CONFIGS' }
   | { type: 'RUN_VERIFY' }
   | { type: 'SET_FILTER'; filter: FindingCategory | 'all' }
   | { type: 'RESET' };
@@ -112,6 +123,37 @@ function makeDevice(key: string, role: 'router' | 'switch', model: RouterCatalog
   };
 }
 
+/* ---- Builder draft 初期化ヘルパ ---- */
+
+/** device の実ポート一覧から、未設定状態の CiscoBuilderDraft を組み立てる */
+export function initCiscoDraft(d: Device): CiscoBuilderDraft {
+  return {
+    hostname: d.key,
+    stpMode: 'rapid-pvst',
+    vlans: [],
+    ports: d.ports.map((p) => ({
+      iface: p.iface, mode: null, accessVlan: null,
+      trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
+    })),
+    svis: [],
+    security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
+  };
+}
+
+/** device の実ポート一覧から、未設定状態の SonicWallBuilderDraft を組み立てる */
+export function initSonicWallDraft(d: Device): SonicWallBuilderDraft {
+  return {
+    hostname: d.key,
+    interfaces: d.ports.map((p) => ({
+      iface: p.iface, enabled: false, zone: 'LAN', ip: '', mask: '255.255.255.0', comment: '', vlanSubs: [],
+    })),
+    addressObjects: [],
+    serviceObjects: [],
+    rules: [],
+    natPolicies: [],
+  };
+}
+
 /* AppState を UIState から組み立てる(engine 関数に渡す形) */
 export function asEngineState(s: UIState): AppState | null {
   if (!s.router) return null;
@@ -137,6 +179,7 @@ const initial: UIState = {
   topoMode: 'star',
   links: [],
   topoSel: null,
+  builderDrafts: {},
   result: null,
   filter: 'all',
 };
@@ -254,6 +297,34 @@ function reducer(s: UIState, a: Action): UIState {
       if (!s.router) return s;
       [s.router, ...s.switches].forEach(clearDevice);
       return { ...s, result: null, filter: 'all' };
+    }
+
+    case 'INIT_BUILDER_DRAFTS': {
+      if (!s.router) return s;
+      const drafts: Record<string, BuilderDraft> = { ...s.builderDrafts };
+      if (!drafts[s.router.key]) drafts[s.router.key] = initSonicWallDraft(s.router);
+      s.switches.forEach((sw) => {
+        if (!drafts[sw.key]) drafts[sw.key] = initCiscoDraft(sw);
+      });
+      return { ...s, builderDrafts: drafts };
+    }
+
+    case 'SET_BUILDER_DRAFT': {
+      return { ...s, builderDrafts: { ...s.builderDrafts, [a.key]: a.draft } };
+    }
+
+    case 'GENERATE_CONFIGS': {
+      if (!s.router) return s;
+      const all: Device[] = [s.router, ...s.switches];
+      all.forEach((d) => {
+        const draft = s.builderDrafts[d.key];
+        if (!draft) return;
+        const text = d.role === 'router'
+          ? generateSonicWallConfig(draft as SonicWallBuilderDraft)
+          : generateCiscoConfig(draft as CiscoBuilderDraft);
+        ingest(d, text);
+      });
+      return { ...s };
     }
 
     case 'RUN_VERIFY': {

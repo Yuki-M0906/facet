@@ -9,6 +9,7 @@ import { PhaseMode } from './phases/PhaseMode';
 import { PhaseSelect } from './phases/PhaseSelect';
 import { PhaseTopology } from './phases/PhaseTopology';
 import { PhaseIntake } from './phases/PhaseIntake';
+import { PhaseBuild } from './phases/PhaseBuild';
 import { PhaseAnalyze } from './phases/PhaseAnalyze';
 import { PhaseResults } from './phases/PhaseResults';
 import { PhaseComplete } from './phases/PhaseComplete';
@@ -20,6 +21,7 @@ function PhaseRouter() {
     case 'select': return <PhaseSelect />;
     case 'topo': return <PhaseTopology />;
     case 'upload': return <PhaseIntake />;
+    case 'build': return <PhaseBuild />;
     case 'analyze': return <PhaseAnalyze />;
     case 'results': return <PhaseResults />;
     case 'complete': return <PhaseComplete />;

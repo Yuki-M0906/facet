@@ -131,8 +131,11 @@ export function PhaseTopology() {
         <button className="btn ghost" onClick={() => dispatch({ type: 'NAV', phase: 'select' })}>
           ← 構成を変更
         </button>
-        <button className="btn primary" onClick={() => dispatch({ type: 'NAV', phase: 'upload' })}>
-          コンフィグ投入へ →
+        <button
+          className="btn primary"
+          onClick={() => dispatch({ type: 'NAV', phase: state.mode === 'build' ? 'build' : 'upload' })}
+        >
+          {state.mode === 'build' ? 'GUI で構成を作成 →' : 'コンフィグ投入へ →'}
         </button>
       </div>
 
