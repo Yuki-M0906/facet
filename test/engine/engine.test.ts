@@ -151,6 +151,71 @@ describe('parseSonicWall', () => {
   it('X1 WAN', () => expect(sw.interfaces['X1']!.zone).toBe('WAN'));
 });
 
+describe('parser coverage (Sprint 3 P3-1)', () => {
+  it('Cisco: 完全に認識できる設定なら coverage は内部一貫性を保つ', () => {
+    expect(c1.coverage.totalLines).toBe(
+      c1.coverage.recognizedLines + c1.coverage.unrecognizedLines.length,
+    );
+  });
+  it('Cisco: SMP_C1 は line vty コマンドが未対応行として検出される', () => {
+    expect(c1.coverage.unrecognizedLines.some((u) => u.text === 'line vty 0 4')).toBe(true);
+    expect(c1.coverage.coveragePercent).toBeLessThan(100);
+    expect(c1.coverage.coveragePercent).toBeGreaterThan(90);
+  });
+  it('SonicWall: SMP_SW は全行認識でき coverage 100%', () => {
+    expect(sw.coverage.unrecognizedLines).toEqual([]);
+    expect(sw.coverage.coveragePercent).toBe(100);
+    expect(sw.coverage.recognizedLines).toBe(sw.coverage.totalLines);
+  });
+
+  const CISCO_GARBAGE =
+    'hostname ACME-SW-99\n' +
+    'some-bogus-global-command foo\n' +
+    'vlan 10\n name STAFF\n' +
+    'unknown-vlan-directive xyz\n' +
+    'interface GigabitEthernet1/0/1\n switchport mode access\n switchport access vlan 10\n totally-unknown-interface-cmd 123\n!\n';
+  const cg = parseCisco(CISCO_GARBAGE);
+
+  it('Cisco: 未認識行を仕込んだ設定で totalLines/unrecognized が正確に検出される', () => {
+    expect(cg.coverage.totalLines).toBe(10);
+    expect(cg.coverage.unrecognizedLines.map((u) => u.text)).toEqual([
+      'some-bogus-global-command foo',
+      'unknown-vlan-directive xyz',
+      'totally-unknown-interface-cmd 123',
+    ]);
+    expect(cg.coverage.recognizedLines).toBe(7);
+    expect(cg.coverage.coveragePercent).toBe(70);
+  });
+  it('Cisco: 空行は totalLines に含まれない', () => {
+    const withBlank = parseCisco('hostname ACME-SW-01\n\n\nvlan 10\n name STAFF\n');
+    expect(withBlank.coverage.totalLines).toBe(3);
+  });
+
+  const SONICWALL_GARBAGE =
+    'system name ACME-EDGE-99\n' +
+    'totally-bogus-top-level-command\n' +
+    'interface X0\n zone LAN\n unknown-interface-attr foo\n ip 192.168.1.1 netmask 255.255.255.0\n' +
+    'nat-policy\n original-source any\n unknown-nat-attr bar\n end\n' +
+    'access-rule from LAN to WAN\n action allow\n unknown-rule-attr baz\n end\n';
+  const swg = parseSonicWall(SONICWALL_GARBAGE);
+
+  it('SonicWall: 未認識行を仕込んだ設定で totalLines/unrecognized が正確に検出される', () => {
+    expect(swg.coverage.totalLines).toBe(14);
+    expect(swg.coverage.unrecognizedLines.map((u) => u.text)).toEqual([
+      'totally-bogus-top-level-command',
+      'unknown-interface-attr foo',
+      'unknown-nat-attr bar',
+      'unknown-rule-attr baz',
+    ]);
+    expect(swg.coverage.recognizedLines).toBe(10);
+    expect(swg.coverage.coveragePercent).toBe(71);
+  });
+  it('SonicWall: nat/rule ブロックの end 行はブロック閉じとして認識される', () => {
+    expect(swg.nat.length).toBe(1);
+    expect(swg.rules.length).toBe(1);
+  });
+});
+
 describe('evalFW (object-aware)', () => {
   it('LAN → WAN allow', () => {
     expect(evalFW(sw, 'LAN', 'WAN', '192.168.10.5', '203.0.113.5', 'any').action).toBe('allow');

@@ -167,6 +167,18 @@ export interface ParsedInterface {
   subVlans?: string[];
 }
 
+/* ---- パーサ・カバレッジ(Sprint 3 P3-1) ----
+ * 「投入したコンフィグのうち、パーサが何行を理解し、何行を無視したか」を可視化するための
+ * 集計。parseCisco / parseSonicWall の両方が返す。空行は分母(totalLines)に含めない
+ * (構造上の区切りであって「認識に失敗したコンテンツ」ではないため)。
+ */
+export interface ParseCoverage {
+  totalLines: number;
+  recognizedLines: number;
+  unrecognizedLines: Array<{ lineNumber: number; text: string }>;
+  coveragePercent: number;   // 0-100、totalLines=0 のときは 100
+}
+
 /* ---- SonicWall AST ---- */
 export type AddressObject =
   | { type: 'host'; ip: string; zone: string | null }
@@ -213,6 +225,7 @@ export interface SonicWallParsed {
   dhcp: Array<{ from: string; to: string }>;
   routes: Array<{ dst: string; mask: string; nh: string }>;
   sec: SonicWallSec;
+  coverage: ParseCoverage;
 }
 
 /* ---- Cisco AST ---- */
@@ -246,6 +259,7 @@ export interface CiscoParsed {
   acls: Record<string, AclLine[]>;
   dhcp: Record<string, DhcpPool>;
   sec: CiscoSec;
+  coverage: ParseCoverage;
 }
 
 /* ---- 実行時オブジェクト ---- */

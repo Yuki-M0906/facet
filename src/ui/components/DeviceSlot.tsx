@@ -4,7 +4,7 @@
  */
 
 import { useRef } from 'react';
-import type { CiscoParsed, Device, SonicWallParsed } from '@engine/types';
+import type { CiscoParsed, Device, ParseCoverage, SonicWallParsed } from '@engine/types';
 
 export type SlotStatus = 'locked' | 'ready' | 'loaded';
 
@@ -34,6 +34,24 @@ function parseSummary(d: Device): string {
   ].join(' · ');
 }
 
+/* Sprint 3 P3-1: パーサが投入コンフィグの何%を理解できたかをスロットに表示する。
+ * 「静的解析ツールとして何を検証できていないか」を隠さず可視化する目的。 */
+function coverageOf(d: Device): ParseCoverage | null {
+  if (!d.parsed) return null;
+  return (d.parsed as { coverage: ParseCoverage }).coverage;
+}
+
+function coverageLabel(c: ParseCoverage): string {
+  if (c.totalLines === 0) return '';
+  if (c.coveragePercent >= 100) return '認識率 100%';
+  return `認識率 ${c.coveragePercent}%(${c.unrecognizedLines.length}行未対応)`;
+}
+
+function coverageTitle(c: ParseCoverage): string | undefined {
+  if (!c.unrecognizedLines.length) return undefined;
+  return '未対応行:\n' + c.unrecognizedLines.map((u) => `#${u.lineNumber}: ${u.text}`).join('\n');
+}
+
 function downloadCfg(d: Device): void {
   if (!d.config) return;
   const hostname = (d.parsed && (d.parsed as { hostname: string | null }).hostname) || d.key;
@@ -55,6 +73,8 @@ export function DeviceSlot({ device, status, onFile }: Props) {
   const subText = isLoaded ? '投入完了 ✓ — ' + parseSummary(device)
     : status === 'ready' ? 'アップロード可能'
     : '前の機器の投入をお待ちください';
+  const coverage = isLoaded ? coverageOf(device) : null;
+  const covLabel = coverage ? coverageLabel(coverage) : '';
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -73,6 +93,14 @@ export function DeviceSlot({ device, status, onFile }: Props) {
         <div className={'s' + (isLoaded ? ' ok' : '')}>
           {isLoaded ? <span className="ok">{subText}</span> : subText}
         </div>
+        {coverage && covLabel && (
+          <div
+            className={'cov' + (coverage.coveragePercent < 100 ? ' cov-warn' : '')}
+            title={coverageTitle(coverage)}
+          >
+            {covLabel}
+          </div>
+        )}
       </div>
       {isLoaded && (
         <button className="btn ghost sm dl-cfg" onClick={() => downloadCfg(device)}>
