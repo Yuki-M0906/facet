@@ -4,6 +4,9 @@ dist/
 .vite/
 *.tsbuildinfo
 
+# Cloudflare Workers (wrangler ローカル状態、デプロイ設定本体は wrangler.jsonc でコミット対象)
+.wrangler/
+
 # logs
 *.log
 npm-debug.log*

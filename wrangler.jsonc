@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers 用デプロイ設定(静的アセット配信のみ、サーバサイド Worker コードなし)。
+  // `npm run build` が生成する dist/ を丸ごと配信する。FACET は単一 index.html なので
+  // ルーティング処理は不要 — not_found_handling は設定しない。
+  "name": "facet",
+  "compatibility_date": "2026-07-04",
+  "assets": {
+    "directory": "./dist"
+  }
+}
