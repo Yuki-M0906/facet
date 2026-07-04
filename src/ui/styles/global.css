@@ -153,16 +153,18 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .disclaimer{font-size:12px;color:var(--muted);background:rgba(217,166,72,.06);border:1px solid rgba(217,166,72,.22);border-radius:10px;padding:13px 16px;margin-bottom:22px;line-height:1.55}
 .disclaimer b{color:var(--topaz)}
 /* Phase 03 (build mode) ビルダーフォーム */
-.builder-section{margin-bottom:26px}
+.builder-section{margin-bottom:28px}
 .builder-section:last-child{margin-bottom:0}
-.builder-section-title{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:12px}
-.builder-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:rgba(0,0,0,.14);border-radius:8px;border:1px solid var(--hair)}
+/* セクション見出しは .eyebrow と同じ金線トリートメントに統一(パネル eyebrow より一段控えめ) */
+.builder-section-title{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.builder-section-title::after{content:"";flex:1;height:1px;background:var(--hair)}
+.builder-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:9px 12px;background:rgba(0,0,0,.14);border-radius:8px;border:1px solid var(--hair);border-left-width:1px;border-left-color:var(--hair);transition:border-color .2s,opacity .2s}
 .builder-row input[type=text],.builder-row select{width:auto;min-width:80px;padding:7px 10px;font-size:12.5px}
 .builder-row label.inline{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);white-space:nowrap}
 .builder-row .lbl{font-family:var(--mono);font-size:11px;color:var(--gold);min-width:44px}
 .builder-row .x{cursor:pointer;color:var(--garnet);opacity:.7;margin-left:auto;font-size:14px}
 .builder-row .x:hover{opacity:1}
-.builder-scroll{max-height:420px;overflow-y:auto;padding-right:4px}
+.builder-scroll{max-height:460px;overflow-y:auto;padding-right:4px}
 .builder-add{font-size:11px;padding:7px 14px;margin-top:4px}
 .builder-vlanchecks{display:flex;flex-wrap:wrap;gap:6px}
 .builder-vlanchecks label{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--muted);background:rgba(0,0,0,.2);padding:3px 8px;border-radius:6px;cursor:pointer}
@@ -170,6 +172,46 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .builder-generate-status{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:6px;margin-left:8px}
 .builder-generate-status.ok{background:rgba(107,191,154,.14);color:var(--emerald)}
 .builder-generate-status.pending{background:rgba(217,166,72,.14);color:var(--topaz)}
+.builder-generate-status.error{background:rgba(213,107,98,.14);color:var(--garnet)}
+.builder-field-error{border-color:var(--garnet)!important;box-shadow:0 0 0 2px rgba(213,107,98,.16)!important}
+.builder-errmsg{font-size:10.5px;color:var(--garnet);font-family:var(--mono);width:100%;margin-top:-2px}
+.builder-warn{font-size:11px;color:var(--topaz);font-family:var(--mono);background:rgba(217,166,72,.1);border:1px solid rgba(217,166,72,.28);border-radius:6px;padding:6px 10px;margin-top:6px}
+.builder-summary-bar{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--hair)}
+.builder-summary-bar b{color:var(--gold-lt);font-weight:500}
+
+/* ポート行のステータス色分け(結果画面のフェイスプレート配色言語を作成側にも適用) */
+.builder-row.cfg-idle{opacity:.6}
+.builder-row.cfg-access{border-left-width:3px;border-left-color:var(--emerald)}
+.builder-row.cfg-trunk{border-left-width:3px;border-left-color:var(--gold)}
+.builder-row.cfg-shutdown{border-left-width:3px;border-left-color:var(--garnet);opacity:.75}
+.builder-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.builder-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.bl-access i{background:var(--emerald)}.bl-trunk i{background:var(--gold)}.bl-shutdown i{background:var(--garnet)}.bl-idle i{background:var(--steel)}
+
+/* ポート設定テーブルの整列(CSS Grid、24〜48行でもラベル/モードの位置が揃う) */
+.builder-portrow{display:grid;grid-template-columns:52px 92px 1fr auto;gap:10px;align-items:center}
+.builder-portrow .lbl{min-width:0}
+
+/* カスタムチェックボックス(ブラウザ標準の見た目をゴールドテーマに統一) */
+.builder-row input[type=checkbox],
+.builder-vlanchecks input[type=checkbox]{
+  appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:none;margin:0;
+  border:1px solid var(--hair-strong);border-radius:4px;background:var(--raised);
+  cursor:pointer;position:relative;transition:all .15s;
+}
+.builder-row input[type=checkbox]:checked,
+.builder-vlanchecks input[type=checkbox]:checked{
+  background:linear-gradient(135deg,var(--gold-lt),var(--gold-dim));border-color:transparent;
+}
+.builder-row input[type=checkbox]:checked::after,
+.builder-vlanchecks input[type=checkbox]:checked::after{
+  content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:10px;line-height:1;color:#1a1510;font-weight:700;
+}
+.builder-row input[type=checkbox]:hover{border-color:var(--gold-dim)}
+
+/* 機器パネル完成度サマリ(eyebrow 内、生成ステータスの隣に表示) */
+.builder-progress{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:8px}
 
 /* Phase 01 capability chips(機種選定時に SKU の能力概要を表示) */
 .caps{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}

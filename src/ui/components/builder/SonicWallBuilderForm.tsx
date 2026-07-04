@@ -1,16 +1,27 @@
 /**
  * SonicWall ルータの GUI 構成フォーム(Phase 03 build mode)。
  * device.ports(実カタログのポート列)をそのまま編集対象にする。
+ *
+ * 入力検証(H-1): validateSonicWallDraft の結果をフィールド単位で表示。
+ * 機種上限のリアルタイム警告(H-2): capabilities.maxVlanInterfaces を生成前に警告。
  */
 
-import type { SonicWallBuilderDraft } from '@engine/types';
+import type { RouterCapabilities, SonicWallBuilderDraft } from '@engine/types';
+import { validateSonicWallDraft } from './validation';
 
 interface Props {
   draft: SonicWallBuilderDraft;
   onChange: (draft: SonicWallBuilderDraft) => void;
+  capabilities?: RouterCapabilities;
+  modelId?: string;
 }
 
-export function SonicWallBuilderForm({ draft, onChange }: Props) {
+export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }: Props) {
+  const errors = validateSonicWallDraft(draft);
+  function errCls(key: string): string {
+    return errors[key] ? 'builder-field-error' : '';
+  }
+
   function update(patch: Partial<SonicWallBuilderDraft>) {
     onChange({ ...draft, ...patch });
   }
@@ -73,22 +84,35 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
     update({ natPolicies: draft.natPolicies.filter((_, idx) => idx !== i) });
   }
 
+  const totalVlanSubs = draft.interfaces.reduce((sum, i) => sum + (i.enabled ? i.vlanSubs.length : 0), 0);
+  const vlanSubOverLimit = capabilities?.maxVlanInterfaces && totalVlanSubs > capabilities.maxVlanInterfaces;
+
   return (
     <div>
       <div className="builder-section">
         <div className="builder-section-title">基本設定</div>
         <div className="builder-row">
           <span className="lbl">hostname</span>
-          <input type="text" value={draft.hostname} onChange={(e) => update({ hostname: e.target.value })} />
+          <input
+            type="text" value={draft.hostname} className={errCls('hostname')}
+            onChange={(e) => update({ hostname: e.target.value })}
+          />
+          {errors['hostname'] && <span className="builder-errmsg">{errors['hostname']}</span>}
         </div>
       </div>
 
       <div className="builder-section">
-        <div className="builder-section-title">インターフェース({draft.interfaces.length} ポート)</div>
+        <div className="builder-section-title">
+          インターフェース({draft.interfaces.length} ポート・{draft.interfaces.filter((i) => i.enabled).length} 有効)
+        </div>
+        <div className="builder-legend">
+          <span className="bl-access"><i />有効</span>
+          <span className="bl-idle"><i />無効</span>
+        </div>
         <div className="builder-scroll">
           {draft.interfaces.map((iface, i) => (
             <div key={iface.iface}>
-              <div className="builder-row">
+              <div className={'builder-row ' + (iface.enabled ? 'cfg-access' : 'cfg-idle')}>
                 <label className="inline">
                   <input type="checkbox" checked={iface.enabled} onChange={(e) => updateIf(i, { enabled: e.target.checked })} />
                   <span className="lbl">{iface.iface}</span>
@@ -98,9 +122,17 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
                     <span className="lbl">Zone</span>
                     <input type="text" value={iface.zone} placeholder="LAN / WAN / DMZ" onChange={(e) => updateIf(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
                     <span className="lbl">IP</span>
-                    <input type="text" value={iface.ip} placeholder="192.168.1.1" onChange={(e) => updateIf(i, { ip: e.target.value })} />
+                    <input
+                      type="text" value={iface.ip} placeholder="192.168.1.1" className={errCls(`iface.${i}.ip`)}
+                      onChange={(e) => updateIf(i, { ip: e.target.value })}
+                    />
+                    {errors[`iface.${i}.ip`] && <span className="builder-errmsg">{errors[`iface.${i}.ip`]}</span>}
                     <span className="lbl">Mask</span>
-                    <input type="text" value={iface.mask} placeholder="255.255.255.0" onChange={(e) => updateIf(i, { mask: e.target.value })} />
+                    <input
+                      type="text" value={iface.mask} placeholder="255.255.255.0" className={errCls(`iface.${i}.mask`)}
+                      onChange={(e) => updateIf(i, { mask: e.target.value })}
+                    />
+                    {errors[`iface.${i}.mask`] && <span className="builder-errmsg">{errors[`iface.${i}.mask`]}</span>}
                     <button className="btn ghost sm" onClick={() => addVlanSub(i)}>+ VLAN サブIF</button>
                   </>
                 )}
@@ -108,34 +140,67 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
               {iface.enabled && iface.vlanSubs.map((v, j) => (
                 <div className="builder-row" key={j} style={{ marginLeft: 24 }}>
                   <span className="lbl">{iface.iface}:V</span>
-                  <input type="text" value={v.vlanTag} placeholder="10" onChange={(e) => updateVlanSub(i, j, { vlanTag: e.target.value })} style={{ maxWidth: 60 }} />
+                  <input
+                    type="text" value={v.vlanTag} placeholder="10" className={errCls(`iface.${i}.vlanSub.${j}.tag`)}
+                    onChange={(e) => updateVlanSub(i, j, { vlanTag: e.target.value })} style={{ maxWidth: 60 }}
+                  />
+                  {errors[`iface.${i}.vlanSub.${j}.tag`] && <span className="builder-errmsg">{errors[`iface.${i}.vlanSub.${j}.tag`]}</span>}
                   <span className="lbl">Zone</span>
                   <input type="text" value={v.zone} onChange={(e) => updateVlanSub(i, j, { zone: e.target.value })} style={{ maxWidth: 90 }} />
                   <span className="lbl">IP</span>
-                  <input type="text" value={v.ip} placeholder="192.168.10.1" onChange={(e) => updateVlanSub(i, j, { ip: e.target.value })} />
+                  <input
+                    type="text" value={v.ip} placeholder="192.168.10.1" className={errCls(`iface.${i}.vlanSub.${j}.ip`)}
+                    onChange={(e) => updateVlanSub(i, j, { ip: e.target.value })}
+                  />
+                  {errors[`iface.${i}.vlanSub.${j}.ip`] && <span className="builder-errmsg">{errors[`iface.${i}.vlanSub.${j}.ip`]}</span>}
                   <span className="lbl">Mask</span>
-                  <input type="text" value={v.mask} onChange={(e) => updateVlanSub(i, j, { mask: e.target.value })} />
+                  <input
+                    type="text" value={v.mask} className={errCls(`iface.${i}.vlanSub.${j}.mask`)}
+                    onChange={(e) => updateVlanSub(i, j, { mask: e.target.value })}
+                  />
+                  {errors[`iface.${i}.vlanSub.${j}.mask`] && <span className="builder-errmsg">{errors[`iface.${i}.vlanSub.${j}.mask`]}</span>}
                   <span className="x" onClick={() => removeVlanSub(i, j)}>✕</span>
                 </div>
               ))}
             </div>
           ))}
         </div>
+        {capabilities?.maxVlanInterfaces && (
+          <div className={vlanSubOverLimit ? 'builder-warn' : 'builder-summary-bar'}>
+            {vlanSubOverLimit
+              ? <>⚠ VLAN サブインターフェイス数 <b>{totalVlanSubs}</b> が {modelId} の上限(<b>{capabilities.maxVlanInterfaces}</b>)を超えています。</>
+              : <>VLAN サブインターフェイス数 <b>{totalVlanSubs}</b> / 上限 {capabilities.maxVlanInterfaces}</>}
+          </div>
+        )}
       </div>
 
       <div className="builder-section">
         <div className="builder-section-title">アドレスオブジェクト</div>
         {draft.addressObjects.map((a, i) => (
           <div className="builder-row" key={i}>
-            <input type="text" value={a.name} placeholder="net-staff" onChange={(e) => updateAddrObj(i, { name: e.target.value })} />
+            <input
+              type="text" value={a.name} placeholder="net-staff" className={errCls(`addr.${i}.name`)}
+              onChange={(e) => updateAddrObj(i, { name: e.target.value })}
+            />
+            {errors[`addr.${i}.name`] && <span className="builder-errmsg">{errors[`addr.${i}.name`]}</span>}
             <select value={a.type} onChange={(e) => updateAddrObj(i, { type: e.target.value as 'host' | 'network' })}>
               <option value="host">host</option>
               <option value="network">network</option>
             </select>
             <span className="lbl">IP</span>
-            <input type="text" value={a.ip} placeholder="192.168.10.0" onChange={(e) => updateAddrObj(i, { ip: e.target.value })} />
+            <input
+              type="text" value={a.ip} placeholder="192.168.10.0" className={errCls(`addr.${i}.ip`)}
+              onChange={(e) => updateAddrObj(i, { ip: e.target.value })}
+            />
+            {errors[`addr.${i}.ip`] && <span className="builder-errmsg">{errors[`addr.${i}.ip`]}</span>}
             {a.type === 'network' && (
-              <input type="text" value={a.mask} placeholder="255.255.255.0" onChange={(e) => updateAddrObj(i, { mask: e.target.value })} />
+              <>
+                <input
+                  type="text" value={a.mask} placeholder="255.255.255.0" className={errCls(`addr.${i}.mask`)}
+                  onChange={(e) => updateAddrObj(i, { mask: e.target.value })}
+                />
+                {errors[`addr.${i}.mask`] && <span className="builder-errmsg">{errors[`addr.${i}.mask`]}</span>}
+              </>
             )}
             <span className="lbl">Zone</span>
             <input type="text" value={a.zone} placeholder="LAN" onChange={(e) => updateAddrObj(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
@@ -149,14 +214,22 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
         <div className="builder-section-title">サービスオブジェクト</div>
         {draft.serviceObjects.map((s, i) => (
           <div className="builder-row" key={i}>
-            <input type="text" value={s.name} placeholder="svc-https" onChange={(e) => updateSvcObj(i, { name: e.target.value })} />
+            <input
+              type="text" value={s.name} placeholder="svc-https" className={errCls(`svc.${i}.name`)}
+              onChange={(e) => updateSvcObj(i, { name: e.target.value })}
+            />
+            {errors[`svc.${i}.name`] && <span className="builder-errmsg">{errors[`svc.${i}.name`]}</span>}
             <select value={s.proto} onChange={(e) => updateSvcObj(i, { proto: e.target.value })}>
               <option value="tcp">tcp</option>
               <option value="udp">udp</option>
               <option value="icmp">icmp</option>
             </select>
             <span className="lbl">Port</span>
-            <input type="text" value={s.from} placeholder="443" onChange={(e) => updateSvcObj(i, { from: e.target.value, to: e.target.value })} style={{ maxWidth: 70 }} />
+            <input
+              type="text" value={s.from} placeholder="443" className={errCls(`svc.${i}.from`)}
+              onChange={(e) => updateSvcObj(i, { from: e.target.value, to: e.target.value })} style={{ maxWidth: 70 }}
+            />
+            {errors[`svc.${i}.from`] && <span className="builder-errmsg">{errors[`svc.${i}.from`]}</span>}
             <span className="x" onClick={() => removeSvcObj(i)}>✕</span>
           </div>
         ))}
@@ -168,9 +241,15 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
         {draft.rules.map((r, i) => (
           <div className="builder-row" key={i}>
             <span className="lbl">from</span>
-            <input type="text" value={r.from} placeholder="LAN" onChange={(e) => updateRule(i, { from: e.target.value })} style={{ maxWidth: 80 }} />
+            <input
+              type="text" value={r.from} placeholder="LAN" className={errCls(`rule.${i}.from`)}
+              onChange={(e) => updateRule(i, { from: e.target.value })} style={{ maxWidth: 80 }}
+            />
             <span className="lbl">to</span>
-            <input type="text" value={r.to} placeholder="WAN" onChange={(e) => updateRule(i, { to: e.target.value })} style={{ maxWidth: 80 }} />
+            <input
+              type="text" value={r.to} placeholder="WAN" className={errCls(`rule.${i}.to`)}
+              onChange={(e) => updateRule(i, { to: e.target.value })} style={{ maxWidth: 80 }}
+            />
             <select value={r.action} onChange={(e) => updateRule(i, { action: e.target.value as 'allow' | 'deny' })}>
               <option value="allow">allow</option>
               <option value="deny">deny</option>
@@ -196,9 +275,15 @@ export function SonicWallBuilderForm({ draft, onChange }: Props) {
         {draft.natPolicies.map((n, i) => (
           <div className="builder-row" key={i}>
             <span className="lbl">送元</span>
-            <input type="text" value={n.orig} placeholder="net-staff / any" onChange={(e) => updateNat(i, { orig: e.target.value })} />
+            <input
+              type="text" value={n.orig} placeholder="net-staff / any" className={errCls(`nat.${i}.orig`)}
+              onChange={(e) => updateNat(i, { orig: e.target.value })}
+            />
             <span className="lbl">変換先</span>
-            <input type="text" value={n.trans} placeholder="WAN Primary IP" onChange={(e) => updateNat(i, { trans: e.target.value })} />
+            <input
+              type="text" value={n.trans} placeholder="WAN Primary IP" className={errCls(`nat.${i}.trans`)}
+              onChange={(e) => updateNat(i, { trans: e.target.value })}
+            />
             <span className="lbl">出力IF</span>
             <select value={n.iface} onChange={(e) => updateNat(i, { iface: e.target.value })}>
               {draft.interfaces.map((iface) => <option key={iface.iface} value={iface.iface}>{iface.iface}</option>)}
