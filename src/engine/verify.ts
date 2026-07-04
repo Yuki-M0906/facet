@@ -72,11 +72,18 @@ export function verify(state: AppState): VerifyResult {
           'allowed vlan を明示。');
         setPort(d, p.iface, 'lack');
       }
-      if (!c.mode && (c.accessVlan || (c.trunkAllowed && c.trunkAllowed.length))) {
+      if (!c.mode) {
+        /* Sprint 3 P3-3: switchport mode 未指定時の既定挙動モデル化。
+         * 本カタログの全 SKU(Catalyst 1000/2960-X/9200/9300)は DTP 既定モードが
+         * dynamic auto(ウェブ調査で確認、docs/PARSER-NOTES.md 参照。旧 2950/3550 等の
+         * dynamic desirable とは異なる)。access/trunk 明示が無いのは「機種既定に依存した
+         * 不安定な状態」であり、accessVlan/trunkAllowed が設定済みでも未設定でも
+         * 同様に注意喚起する。 */
         add('L2', 'lack', d.key + ':' + p.iface,
-          'switchport mode 未指定。',
-          'モード未定義は機種既定動作依存で不安定。',
-          'access / trunk を明示。');
+          'switchport mode 未指定(機種既定の dynamic auto として動作)。',
+          '本カタログの全 SKU は DTP 既定モードが dynamic auto です。対向ポートが trunk 化を' +
+            '要求しない限り access(native VLAN)として動作するため、意図した構成か不明確です。',
+          'access / trunk を明示して意図を明確にする。');
         setPort(d, p.iface, 'lack');
       }
     });
@@ -211,14 +218,26 @@ export function verify(state: AppState): VerifyResult {
     else parent[ra] = rb;
   });
   if (loop) {
-    const noStp = devs.filter((d) => d.role === 'switch' && d.parsed && !(d.parsed as { stpMode?: string }).stpMode);
+    /* Sprint 3 P3-3: spanning-tree mode 未指定時の既定挙動モデル化。
+     * ウェブ調査により、本カタログの全 SKU(Catalyst 1000/2960-X は IOS 15.2(4)E 以降、
+     * 9200/9300 は IOS-XE)は spanning-tree mode 未指定時 Rapid-PVST+ が既定と確認できた
+     * (docs/PARSER-NOTES.md 参照)。つまり stpMode 未設定 ≠ "STP無し" であり、以前の
+     * err 判定は既定挙動を無視した過大評価だった。未設定でも既定でループが保護されている
+     * 前提に修正し、lack(明示設定の推奨)へ格下げする。ただし FACET は静的解析であり
+     * 実機の稼働状態そのものは検証できないため、断定はしない。 */
+    const stpUnset = devs.filter((d) => d.role === 'switch' && d.parsed && !(d.parsed as { stpMode?: string }).stpMode);
     const edge = loopEdge as Link | null;
-    add('STP', noStp.length ? 'err' : 'lack',
+    add('STP', 'lack',
       edge ? edge.a.key + ' ↔ ' + edge.b.key : 'topology',
-      'L2ループが存在します' + (noStp.length ? '(STP未設定のスイッチあり)' : '(STPで1ポートがブロック)') + '。',
-      '冗長配線はループを生み、STP無しではブロードキャストストームに直結。',
-      noStp.length
-        ? noStp.map((s) => s.key).join(',') + ' に spanning-tree mode rapid-pvst 等を設定。'
+      'L2ループが存在します' +
+        (stpUnset.length
+          ? '(STPモード未設定のスイッチあり。機種既定の Rapid-PVST+ で保護されていると推定されます)'
+          : '(STPで1ポートがブロック)') + '。',
+      stpUnset.length
+        ? '本カタログの全 SKU は spanning-tree mode 未指定時 Rapid-PVST+ が既定のため、通常はSTPがループを保護します。ただし FACET は静的解析であり実機の稼働状態そのものは検証できません。'
+        : '冗長配線はループを生み、STP無しではブロードキャストストームに直結。',
+      stpUnset.length
+        ? stpUnset.map((s) => s.key).join(',') + ' に spanning-tree mode を明示設定し、既定動作への依存を無くすことを推奨。'
         : 'STPが片側ポートをブロックします。意図的な冗長か確認を。',
     );
   }
