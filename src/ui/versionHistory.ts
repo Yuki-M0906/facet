@@ -19,9 +19,30 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.3.0';
+export const CURRENT_VERSION = '4.4.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.4.0',
+    date: '2026-07-04',
+    title: 'Sprint 3 P3-3 — 暗黙既定値のモデル化',
+    changes: [
+      '[検証精度] switchport mode 未指定ポートの L2 チェックを拡張。以前は accessVlan/' +
+        'trunkAllowed が設定済みの場合のみ発火していたが、完全に未設定の場合も含めて' +
+        '「機種既定の dynamic auto として動作する」ことを常に注意喚起するよう変更' +
+        '(本カタログ全 SKU が dynamic auto 既定であることをウェブ調査で確認)。',
+      '[過大評価の是正] STP ループ検出で spanning-tree mode 未設定のスイッチを' +
+        '「STP無し」として err 扱いしていた判定を修正。本カタログの全 SKU は' +
+        'spanning-tree mode 未指定時 Rapid-PVST+ が既定であることが判明したため、' +
+        '未設定でも既定動作で保護されている前提に変更し lack へ格下げ' +
+        '(FACET は静的解析であり実機の稼働状態そのものは断定できないため)。',
+      '[ドキュメント] docs/VERIFICATION-RULES.md が TS 移行前(v3.1.0 時代)の記述の' +
+        'まま放置されていたのを是正。CAP カテゴリ(Sprint 2 で追加済)の記載漏れ、' +
+        'deprecated ファイルへの参照を修正し、現状の検証ルールと一致させた。',
+      'テスト 5 ケース追加(dynamic auto 拡張、STP lack 化の新旧両パターン)。' +
+        'テスト計 93 → 98 ケース。',
+    ],
+  },
   {
     version: '4.3.0',
     date: '2026-07-04',

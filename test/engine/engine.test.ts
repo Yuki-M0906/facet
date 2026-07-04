@@ -289,6 +289,74 @@ describe('full verify', () => {
   });
 });
 
+describe('L2 — switchport mode 既定挙動モデル化(Sprint 3 P3-3)', () => {
+  const rmTz = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  function buildBare(cfg: string) {
+    const rTz = makeDev('R1', 'router', rmTz, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const swDev = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    [rTz, swDev].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: rTz, switches: [swDev], devices: [rTz, swDev], topoMode: 'star', links: [] };
+    st.links = autoLinks(st);
+    return verify(st);
+  }
+
+  it('mode/accessVlan/trunkAllowed すべて未設定でも dynamic auto の注意喚起が出る', () => {
+    const V = buildBare('hostname BARE\ninterface GigabitEthernet1/0/1\n description unused\n!\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('dynamic auto'))).toBe(true);
+  });
+  it('accessVlan のみ設定・mode 未設定でも同様に注意喚起(既存挙動の維持)', () => {
+    /* Sprint 3 以前は「accessVlan はあるが mode 未指定」の場合のみ発火していた。
+       widening 後も引き続き発火することを確認する。 */
+    const V = buildBare('hostname PARTIAL\nvlan 10\n name A\ninterface GigabitEthernet1/0/1\n switchport access vlan 10\n!\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('dynamic auto'))).toBe(true);
+  });
+  it('switchport mode が明示されていれば発火しない', () => {
+    const V = buildBare('hostname OK\nvlan 10\n name A\ninterface GigabitEthernet1/0/1\n switchport mode access\n switchport access vlan 10\n!\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('dynamic auto'))).toBe(false);
+  });
+});
+
+describe('STP — spanning-tree mode 既定挙動モデル化(Sprint 3 P3-3)', () => {
+  const rmTz = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  function buildTriangle(sw1StpMode: string | null, sw2StpMode: string | null) {
+    const trunkBody = 'vlan 10\n name A\n' +
+      'interface GigabitEthernet1/0/1\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n' +
+      'interface GigabitEthernet1/0/2\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n';
+    const cfg1 = 'hostname SW1\n' + (sw1StpMode ? 'spanning-tree mode ' + sw1StpMode + '\n' : '') + trunkBody;
+    const cfg2 = 'hostname SW2\n' + (sw2StpMode ? 'spanning-tree mode ' + sw2StpMode + '\n' : '') + trunkBody;
+    const rTz = makeDev('R1', 'router', rmTz, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = makeDev('SW1', 'switch', sm1000, parseCisco(cfg1));
+    const sw2 = makeDev('SW2', 'switch', sm1000, parseCisco(cfg2));
+    [rTz, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links = [
+      { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'R1', iface: 'X1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz, switches: [sw1, sw2], devices: [rTz, sw1, sw2], topoMode: 'manual', links };
+    return verify(st);
+  }
+
+  it('STPモード未設定でループがある場合、Rapid-PVST+既定を前提に lack(以前は err)', () => {
+    const V = buildTriangle(null, null);
+    const f = V.findings.find((x) => x.cat === 'STP');
+    expect(f).toBeTruthy();
+    expect(f!.level).toBe('lack');
+    expect(f!.desc).toContain('Rapid-PVST+');
+  });
+  it('STPモード設定済みでループがある場合も lack のまま(回帰確認)', () => {
+    const V = buildTriangle('rapid-pvst', 'rapid-pvst');
+    const f = V.findings.find((x) => x.cat === 'STP');
+    expect(f).toBeTruthy();
+    expect(f!.level).toBe('lack');
+    expect(f!.desc).toContain('ブロック');
+  });
+});
+
 /* ===== matrix ===== */
 
 const posSub = V.subnets.filter((s) => s.zone === 'POS')[0]!;

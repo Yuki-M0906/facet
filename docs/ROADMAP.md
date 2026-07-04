@@ -62,13 +62,16 @@
 
 - [x] **P3-1**(v4.2.0、2026-07-04)認識行 / 未認識行を全行トラッキングし、
       パーサ網羅率を Phase 03 スロットに表示(`ParseCoverage`)
-- [x] **P3-2**(v4.2.0、2026-07-04)IOS / IOS-XE / NX-OS の判別。FACET のカタログ
+- [x] **P3-2**(v4.3.0、2026-07-04)IOS / IOS-XE / NX-OS の判別。FACET のカタログ
       という閉じた集合内での実用的なシグナル判定に限定(一般則ではない)。
       SonicOS 6 / 7 の判別は公式リファレンスが取得不能で調査の結果断念
       (`ParseCoverage` の認識率低下が実質的なセーフティネット)。詳細は
       `docs/PARSER-NOTES.md`
-- [ ] **P3-3** 各プラットフォームの「未指定時の既定挙動」をモデル化
-  - 例:Cisco `switchport mode` 未指定 → `dynamic auto` として L2 リンクシミュレーション
+- [x] **P3-3**(v4.4.0、2026-07-04)各プラットフォームの「未指定時の既定挙動」を
+      モデル化。`switchport mode` 未指定 → `dynamic auto`(本カタログ全 SKU 共通)
+      として L2 で常時注意喚起するよう拡張。`spanning-tree mode` 未指定時の
+      ループ検出を Rapid-PVST+ 既定を前提とした判定に修正(誤って `err` として
+      いた過大評価を是正)。詳細は `docs/VERIFICATION-RULES.md`
 - [ ] **P3-4** 実機 `show` 出力(匿名化)から **大量の test fixture** を作成
 
 ### Sprint 4 — 評価エンジンのリアリズム強化
