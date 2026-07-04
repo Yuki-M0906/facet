@@ -120,7 +120,19 @@ export function PhaseSelect() {
         <span className="left">Router ×1 · Switch ×{state.switchCount}</span>
         <button
           className="btn primary"
-          onClick={() => dispatch({ type: 'BUILD_TOPOLOGY' })}
+          onClick={() => {
+            /* 既に投入済みコンフィグ or 編集中の draft があるのに機種/台数を変えて
+               再生成すると、device インスタンスが総入れ替えされ静かに失われる。
+               ここでだけ確認する(BUILD_TOPOLOGY を dispatch する唯一の箇所)。 */
+            const hasExisting = !!state.router && (
+              [state.router, ...state.switches].some((d) => d.config) ||
+              Object.keys(state.builderDrafts).length > 0
+            );
+            if (hasExisting && !window.confirm(
+              '機種・台数を変更すると、投入済みのコンフィグや入力中の内容が失われます。よろしいですか?'
+            )) return;
+            dispatch({ type: 'BUILD_TOPOLOGY' });
+          }}
         >
           構成図・トポロジーへ →
         </button>

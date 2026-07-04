@@ -233,6 +233,10 @@ function reducer(s: UIState, a: Action): UIState {
         topoSel: null,
         phase: 'topo',
         result: null,
+        /* 機種/台数が変わると実ポート数も変わるため、古い builderDrafts を持ち越すと
+           不整合(存在しないポートを参照する draft)を起こす。トポロジー再生成のたびに
+           クリアし、Phase 03 の INIT_BUILDER_DRAFTS で新しい device.ports から作り直す。 */
+        builderDrafts: {},
       };
     }
 
