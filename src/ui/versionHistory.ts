@@ -19,9 +19,24 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.1.0';
+export const CURRENT_VERSION = '4.2.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.2.0',
+    date: '2026-07-04',
+    title: 'Sprint 3 P3-1 — パーサ・カバレッジの可視化',
+    changes: [
+      '[パーサ精度] parseCisco / parseSonicWall の両方に「投入したコンフィグのうち何行を ' +
+        '理解できたか」を計測するカバレッジ機能を追加(ParseCoverage 型: totalLines / ' +
+        'recognizedLines / unrecognizedLines / coveragePercent)。空行は分母に含めない。',
+      '[誠実性] 静的解析ツールとして「何を検証できていないか」を隠さない方針に基づき、' +
+        'Phase 03 投入モードの各スロットに「認識率 92%(3行未対応)」のような表示を追加。' +
+        '未対応行は行番号付きでツールチップに一覧表示する。',
+      'Cisco / SonicWall それぞれの制御フローを変更せず(ゼロ回帰)、未認識と判定できる ' +
+        '分岐点のみに計測ロジックを追加。カバレッジ専用テスト 7 ケース追加(テスト計 74→81 ケース)。',
+    ],
+  },
   {
     version: '4.1.0',
     date: '2026-07-04',

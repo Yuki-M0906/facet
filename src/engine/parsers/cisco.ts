@@ -8,14 +8,14 @@
 
 import { expandIfRange, expandVlans } from '../canonIf';
 import { subnetOf } from '../ip';
-import type { AclLine, CiscoParsed, ParsedInterface } from '../types';
+import type { AclLine, CiscoParsed, ParseCoverage, ParsedInterface } from '../types';
 
 interface CurIf extends Omit<ParsedInterface, 'name'> {
   /** interface range で複数 IF をまとめて構築するための一時 field */
   names: string[];
 }
 
-interface InternalParsed extends CiscoParsed {
+interface InternalParsed extends Omit<CiscoParsed, 'coverage'> {
   /** DHCP プール本文の取り込み中フラグ(キーは pool 名)。flush 時に削除する */
   _dhcp?: string | null;
 }
@@ -74,6 +74,19 @@ export function parseCisco(text: string): CiscoParsed {
   let vl: string | null = null;
   let curAcl: string | null = null;
 
+  /* ---- カバレッジ計測(Sprint 3 P3-1) ----
+   * 「未認識」と判定できるのは制御フロー上ちょうど 2 箇所だけ:
+   *   (a) if(!cur){...} 内、vlan/name のどちらにもマッチしなかった末尾の continue
+   *   (b) インターフェース本体の if/else-if チェーンのどれにもマッチしなかった場合
+   * それ以外の全 continue は「何らかのパターンに一致して処理した」ことを意味するため
+   * 個別に recognized フラグを立てる必要はない。空行は構造上のセパレータであり
+   * 「認識に失敗したコンテンツ」ではないため分母(totalLines)に含めない
+   * (どの正規表現も空文字列にはマッチしないため、この早期 continue は既存ロジックに
+   * 一切影響しない)。
+   */
+  const unrecognized: Array<{ lineNumber: number; text: string }> = [];
+  let totalLines = 0;
+
   function flush(): void {
     if (cur) {
       cur.names.forEach((nm) => {
@@ -93,6 +106,8 @@ export function parseCisco(text: string): CiscoParsed {
   for (let li = 0; li < lines.length; li++) {
     const raw = lines[li]!;
     const t = raw.replace(/\t/g, ' ').trim();
+    if (!t) continue;   // 空行はカバレッジ対象外(既存の抽出ロジックは空文字列に一切マッチしないため無害)
+    totalLines++;
     let m: RegExpMatchArray | null;
 
     if ((m = t.match(/^hostname\s+(\S+)/))) { out.hostname = m[1]!; continue; }
@@ -183,6 +198,7 @@ export function parseCisco(text: string): CiscoParsed {
         vl = null;
         continue;
       }
+      unrecognized.push({ lineNumber: li + 1, text: t });
       continue;
     }
     if ((m = t.match(/^description\s+(.+)/))) cur.description = m[1]!;
@@ -210,6 +226,7 @@ export function parseCisco(text: string): CiscoParsed {
     } else if (/spanning-tree portfast/.test(t) && !/disable/.test(t)) cur.portfast = true;
     else if (/spanning-tree bpduguard enable/.test(t)) cur.bpduguard = true;
     else if (/^shutdown$/.test(t)) cur.shutdown = true;
+    else unrecognized.push({ lineNumber: li + 1, text: t });
   }
   flush();
 
@@ -222,5 +239,12 @@ export function parseCisco(text: string): CiscoParsed {
   // 型から _dhcp を切り落として返す
   const { _dhcp: _, ...clean } = out;
   void _;
-  return clean;
+
+  const coverage: ParseCoverage = {
+    totalLines,
+    recognizedLines: totalLines - unrecognized.length,
+    unrecognizedLines: unrecognized,
+    coveragePercent: totalLines > 0 ? Math.round(((totalLines - unrecognized.length) / totalLines) * 100) : 100,
+  };
+  return { ...clean, coverage };
 }
