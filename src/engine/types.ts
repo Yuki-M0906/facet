@@ -179,6 +179,43 @@ export interface ParseCoverage {
   coveragePercent: number;   // 0-100、totalLines=0 のときは 100
 }
 
+/* ---- プラットフォーム判別ヒント(Sprint 3 P3-2) ----
+ * 投入された Cisco コンフィグのテキストに、選択機種の OS ファミリー
+ * (catalog.ts の SwitchCapabilities.osVersions)と矛盾する構文シグナルが
+ * 含まれていないかを検出する。あくまで「テキスト上の手がかり」であり、
+ * 実機の OS を断定するものではない(FACET は静的解析ツールであり実機を検証できない)。
+ *
+ * 各シグナルの根拠(2026-07-04 時点でのウェブ調査、docs/PARSER-NOTES.md に詳細):
+ * - nxos-*  : FACET のカタログに NX-OS 機器は存在しない。検出 = 対象外機種の
+ *   コンフィグが投入された可能性が高い(高確信度、Cisco 公式ドキュメントで確認)。
+ * - iosxe-* : Catalyst 9000 系(9200/9300)の Smart Licensing / install mode /
+ *   platform(FED)固有の構文。IOS-XE を強く示唆する。
+ * - ios-classic-* : 2960-X/1000 系の Right-To-Use ライセンス階層名
+ *   (lanbase/lanlite/ipservices)。classic IOS を示唆する。
+ *
+ * SonicWall 側は SonicOS 6 と 7(Classic Mode)の CLI テキストに信頼できる判別法が
+ * 見つからなかったため(公式リファレンスガイドがボット対策で取得不能、調査済)、
+ * 本フィールドは Cisco 専用。SonicOS の非対応方言(Policy Mode 等)は
+ * ParseCoverage の低い認識率として自然に可視化されるため、無理に判別ロジックを
+ * 実装しない方針(FACET は確証の無い判定を主張しない)。
+ */
+export type PlatformSignal =
+  | 'nxos-feature'
+  | 'nxos-feature-set'
+  | 'nxos-vdc'
+  | 'nxos-mgmt0'
+  | 'nxos-vrf-context'
+  | 'nxos-boot'
+  | 'iosxe-install-mode'
+  | 'iosxe-license-tier'
+  | 'iosxe-smart-licensing'
+  | 'iosxe-platform-fed'
+  | 'ios-classic-license-tier';
+
+export interface PlatformHint {
+  signals: Array<{ lineNumber: number; text: string; signal: PlatformSignal }>;
+}
+
 /* ---- SonicWall AST ---- */
 export type AddressObject =
   | { type: 'host'; ip: string; zone: string | null }
@@ -260,6 +297,7 @@ export interface CiscoParsed {
   dhcp: Record<string, DhcpPool>;
   sec: CiscoSec;
   coverage: ParseCoverage;
+  platformHint: PlatformHint;
 }
 
 /* ---- 実行時オブジェクト ---- */

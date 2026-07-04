@@ -4,6 +4,43 @@
 
 ---
 
+## v4.3.0 — 2026-07-04
+
+### Sprint 3 P3-2 — プラットフォーム判別(NX-OS/IOS-XE誤投入検知)
+
+- `parseCisco` に `platformHint`(`PlatformHint` 型)を追加。投入コンフィグのテキストから、
+  選択機種の OS ファミリー(`catalog.ts` の `SwitchCapabilities.osVersions`)と矛盾する
+  構文シグナルが無いかを検出する。検出ロジック(`detectPlatformHint()`)は既存の抽出
+  ロジックから完全に独立した追加スキャンで、`out`/`cur` 等の既存状態には一切触れない
+  (ゼロ回帰)。
+- **NX-OS 判別**: `feature <name>` / `feature-set` / `vdc <name> id <n>` /
+  `interface mgmt0` / `vrf context <name>` / `boot nxos|kickstart bootflash:` を検出。
+  FACET のカタログに NX-OS 機器は存在しないため、検出 = カタログ対象外の機種の
+  コンフィグが投入された可能性が高いというシグナルとして扱う(CAP err)。
+- **classic IOS vs IOS-XE 判別**: 一般則としての判別は信頼できる方法が無いことを
+  ウェブ調査で確認した上で、FACET のカタログという閉じた集合(Catalyst 9000系=IOS-XE、
+  2960-X/1000系=classic IOS)の中でのみ実用的な代理指標を採用。
+  `license boot level network-essentials|network-advantage|dna-*`(IOS-XE 側の
+  ライセンス階層名)、`packages.conf`(install mode)、`platform punt-keepalive|qos|ptp|
+  sudi|tcam-limit`(FED 固有コマンド)、`service call-home` + `license smart transport
+  callhome` のクラスタ(Smart Licensing、単体では非決定的なため両方必須)を IOS-XE 側の
+  シグナルとし、`license boot level lanbase|lanlite|ipservices` を classic IOS 側の
+  シグナルとした。選択機種の OS ファミリーと矛盾する場合は CAP err を発火
+  (機種選択・アップロードファイルの取り違えを早期発見)。
+- **SonicOS 6/7 判別は実装を見送り**: 公式の SonicOS/X 7 Command Line Interface
+  Reference Guide が bot 対策(Imperva)で取得できず、CLI テキストレベルでの信頼できる
+  判別根拠が確認できなかった。加えて SonicOS 7 には Classic Mode(6.5 相当)と
+  Policy Mode(SonicOSX、別体系)があり、ファームウェアバージョンだけではモードも
+  判定できないことが判明。確証の無い判定ロジックを実装しない方針を優先し、
+  `SonicWallParsed` には `platformHint` を追加していない。Policy Mode 等の非対応方言は
+  既存の `ParseCoverage`(v4.2.0)の認識率低下として自然に可視化されるため、実用上の
+  セーフティネットは既に機能している。調査結果は `docs/PARSER-NOTES.md` に記録。
+- テスト 12 ケース追加(NX-OS/IOS-XE/classic IOS シグナル検出、CAP 突合の一致/不一致、
+  誤検出防止 `license feature X` 等)。テスト計 81 → 93 ケース、全 PASS(既存ケースへの
+  回帰なし)。
+
+---
+
 ## v4.2.0 — 2026-07-04
 
 ### Sprint 3 P3-1 — パーサ・カバレッジの可視化

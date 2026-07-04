@@ -390,7 +390,7 @@ export function verify(state: AppState): VerifyResult {
   /* スイッチ側の CAP チェック */
   devs.forEach((d) => {
     if (d.role !== 'switch' || !d.parsed) return;
-    const cp = d.parsed as { vlans?: Record<string, string>; svis?: Record<string, unknown>; stpMode?: string | null; acls?: Record<string, unknown[]>; interfaces?: Record<string, ParsedInterface> };
+    const cp = d.parsed as { vlans?: Record<string, string>; svis?: Record<string, unknown>; stpMode?: string | null; acls?: Record<string, unknown[]>; interfaces?: Record<string, ParsedInterface>; platformHint?: import('./types').PlatformHint };
     const cap = (d.model as { capabilities?: import('./types').SwitchCapabilities }).capabilities;
     if (!cap) return;
 
@@ -452,6 +452,32 @@ export function verify(state: AppState): VerifyResult {
           'PAgP (channel-group mode desirable/auto) が設定されているが ' + d.model.id + ' は PAgP 非対応。',
           'Cat 1000 等は LACP のみ対応で PAgP は使えない。リンク集約が成立しない。',
           'channel-group mode を active/passive(LACP)に変更。');
+      }
+    }
+    /* プラットフォーム判別ヒントと選択機種の OS ファミリーの突合(Sprint 3 P3-2) */
+    if (cp.platformHint) {
+      const signals = cp.platformHint.signals;
+      const nxosHits = signals.filter((s) => s.signal.startsWith('nxos-'));
+      const iosXeHits = signals.filter((s) => s.signal.startsWith('iosxe-'));
+      const iosClassicHits = signals.filter((s) => s.signal.startsWith('ios-classic-'));
+      if (nxosHits.length) {
+        add('CAP', 'err', d.key,
+          'コンフィグに NX-OS 固有の構文(例:"' + nxosHits[0]!.text + '")が検出されました。',
+          'FACET のカタログは Catalyst シリーズ(IOS/IOS-XE)のみ対応で、NX-OS 機器はモデル化されていません。パース結果全体の信頼性が低い可能性があります。',
+          '投入したコンフィグと選択機種が正しいか確認してください。NX-OS 機器は現時点で FACET の対象外です。');
+      } else {
+        const skuIsIosXe = cap.osVersions.some((v) => /ios-xe/i.test(v));
+        if (skuIsIosXe && iosClassicHits.length && !iosXeHits.length) {
+          add('CAP', 'err', d.key,
+            '選択機種 ' + d.model.id + '(IOS-XE 系)に対し、コンフィグには classic IOS 系のライセンス階層(例:"' + iosClassicHits[0]!.text + '")が含まれています。',
+            'lanbase / lanlite / ipservices は 2960-X・Catalyst 1000 系のライセンス階層名で、Catalyst 9000 系(IOS-XE)には存在しません。機種選択とコンフィグの組み合わせが一致していない可能性があります。',
+            '投入したコンフィグファイル、または選択機種が正しいか確認してください。');
+        } else if (!skuIsIosXe && iosXeHits.length) {
+          add('CAP', 'err', d.key,
+            '選択機種 ' + d.model.id + '(classic IOS 系)に対し、コンフィグには IOS-XE 系(Catalyst 9000)固有の構文(例:"' + iosXeHits[0]!.text + '")が含まれています。',
+            'Smart Licensing / install mode / platform(FED)構文は Catalyst 9000 系(IOS-XE)特有で、2960-X・Catalyst 1000 系には存在しません。機種選択とコンフィグの組み合わせが一致していない可能性があります。',
+            '投入したコンフィグファイル、または選択機種が正しいか確認してください。');
+        }
       }
     }
   });
