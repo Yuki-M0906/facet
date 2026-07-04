@@ -14,6 +14,9 @@ export { canonIf, expandVlans, expandIfRange, uniq } from './canonIf';
 export { parseCisco } from './parsers/cisco';
 export { parseSonicWall } from './parsers/sonicwall';
 
+export { generateCiscoConfig } from './generators/cisco';
+export { generateSonicWallConfig } from './generators/sonicwall';
+
 export { mapToPorts } from './mapToPorts';
 export { buildSubnets } from './buildSubnets';
 export { WELL_KNOWN_SVC, resolveSvc, svcMatch, objContains, evalFW } from './evalFW';

@@ -20,21 +20,42 @@
 - Vite + `vite-plugin-singlefile` で **配布物は単一 HTML 維持**(dist/index.html、~220KB)
 - 46 テスト全 PASS、v3.1.0 とのパリティ(スコア / 件数 / 検出ルール)確認
 
-## 🚧 次フェーズ
-
-### Sprint 2 — 機材カタログ実物化(★最優先)
-**目的:**「全 SKU 同一」の代表値仮定を脱し、SKU 別の実物理仕様で挙動を分岐させる。
-**所要:** 5〜7 日。
-
+### Sprint 2 — 機材カタログ実物化(2026-07-04、v4.0.0)
 - SonicWall 全 7 SKU(TZ270 / TZ370 / TZ470 / TZ570 / TZ670 / NSa2700 / NSa3700)を
-  datasheet 精読し、正確な物理仕様を反映
-  - ポート種別 / 速度 / PoE 対応
-  - Max throughput, Max sessions, Max VPN, Max VLAN
-- Cisco 全 8 SKU(C1000-24/48、C2960-X 24/48、C9200-24/48、C9300-24/48)を同様に
-  - ポート構成 / アップリンクオプション / L2 vs L3 / Max ACL / STP variant 対応 / PoE
-- 各 SKU の `capabilities` を型付き定数として持つ
-- 「SKU が対応していない機能を config が要求した場合」を **CAP カテゴリ**で警告
-- 内部に capability matrix を持ち、verify() 内で SKU と config の整合チェックを追加
+  datasheet 精読し、正確な物理仕様を反映(v3.1.0 の誤ったポート構成を修正)
+- Cisco 全 8 SKU(C1000-24/48、C2960-X 24/48、C9200-24/48、C9300-24/48)を同様に反映
+- `RouterCapabilities` / `SwitchCapabilities` 型を新設、各 SKU に実データを格納
+- **CAP カテゴリ**新設:VLAN/SVI/ACL 数上限超過、PAgP 非対応、STP variant 非対応を検出
+- Phase 01 に capability chip 表示、ポート tooltip に PoE 情報
+- テスト 50 ケース全 PASS(CAP 検証 4 ケース追加)
+
+### Sprint 5 MVP — 「GUI でゼロから作成」モード(2026-07-04、v4.0.0)
+> 当初計画では Sprint 3/4(パーサ精度・評価エンジン強化)の後に着手する予定だったが、
+> ユーザーヒアリングで「これが FACET の核心機能」と判明したため優先度を繰り上げ、
+> Sprint 2 完了直後に MVP 版として実装した。Sprint 3/4 は将来的にこの機能の精度を
+> 底上げする位置づけに変わる。
+
+- `generateCiscoConfig` / `generateSonicWallConfig`:draft(フォーム編集用の構造化
+  データ)→ running-config / SonicOS CLI テキストへのジェネレータを新設
+  (`src/engine/generators/`)。既存パーサの正規表現に厳密準拠
+- **往復保証の構造的な担保**:生成したテキストは device.config に格納後、必ず
+  既存の `parseCisco` / `parseSonicWall` で再パースして `device.parsed` を作る
+  設計にした。生成ロジックとパースロジックの二重管理を避け、検証パイプラインは
+  投入モードと完全共通
+- Phase 00 の「② 作成モード」を有効化、Phase 03 が動的に
+  投入フォーム(検証モード)/ GUI 構築フォーム(作成モード)に切り替わる
+- Cisco: hostname/STP/VLAN一覧/ポート単位のaccess・trunk設定/portfast/bpduguard/
+  shutdown/SVI/セキュリティ設定をフォームで構築
+- SonicWall: hostname/インターフェース(VLANサブIF含む)/アドレスオブジェクト/
+  サービスオブジェクト/アクセスルール/NATポリシーをフォームで構築
+- 生成後は「⇩ ダウンロード」で即座に実機投入用テキストを取得可能
+- 往復保証テスト 20 ケース(`test/engine/builder.test.ts`)、生成→verify までの
+  フルパイプラインテストも追加。テスト計 70 ケース全 PASS
+- **MVP スコープ外(次回以降)**:機種 capability を超える入力のリアルタイム制限
+  (現状は生成後の CAP チェックで警告のみ)、ACL/DHCP プール/HSRP のビルダー UI、
+  address-object の range 型
+
+## 🚧 次フェーズ
 
 ### Sprint 3 — パーサ精度向上 + 暗黙既定値モデル化
 **所要:** 5〜7 日。
@@ -55,14 +76,13 @@
   STP ルート選出
 - ハードウェア制約警告(MAC table、ACL TCAM 等)
 
-### Sprint 5 — 「GUI でゼロから作成」モード
-**所要:** 3〜4 日(Sprint 2〜4 の機材精度に乗る前提)。
+### Sprint 5 フォローアップ — GUI 作成モードの精度向上
+**所要:** 2〜3 日。MVP は完了済み(上記参照)。残作業:
 
-- Cisco スイッチ用 GUI(VLAN/IF/STP/SEC のフォーム)
-- Cisco config テキストジェネレータ
-- 生成 → パーサ往復テスト(自分の出力を自分が読めることを保証)
-- SonicWall 版も同様(Sprint 5 後半)
-- 機材 capability を超える設定は GUI で入力不可能化
+- 機材 capability を超える設定は GUI 上でリアルタイム制限(現状は生成後の警告のみ)
+- ACL / DHCP プール / HSRP のビルダー UI 追加
+- address-object の range 型対応
+- Sprint 3/4 のパーサ精度・評価エンジン強化の成果をフォームに反映
 
 ### Sprint 6 — ライブコレクタ(真の "theory → live")
 **所要:** 1 週間。

@@ -61,7 +61,8 @@ Node.js 20+ が必要。Windows / macOS / Linux で同じ手順。
 
 ## バージョン
 
-- **v4.0.0**(現行) — Vite + React + TypeScript 化、単一 HTML 出力は維持
+- **v4.0.0**(現行) — Vite + React + TypeScript 化、機材カタログ実物化、
+  GUI 作成モード MVP。単一 HTML 出力は維持
 - v3.1.0 — Sprint 1: svcMatch / pathTrace バグ修正、Meiryo UI 統一、Phase 00 追加
 - v3.0 — 初期単一 HTML 版
 

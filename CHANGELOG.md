@@ -1,6 +1,35 @@
 # Changelog — FACET (Network Verification Atelier)
 
-主要な変更のみ。詳細は git log と `docs/SPRINT-1.5-DESIGN.md` を参照。
+主要な変更のみ。詳細は git log と `docs/SPRINT-1.5-DESIGN.md` / `docs/ROADMAP.md` を参照。
+
+---
+
+## v4.0.0(継続)— 2026-07-04
+
+### Sprint 2 — 機材カタログ実物化
+- SonicWall 全 7 SKU / Cisco 全 8 SKU の物理仕様を datasheet 精読で正確化
+  (v3.1.0 で誤っていた TZ370/470/570/670 のポート構成を修正)
+- `RouterCapabilities` / `SwitchCapabilities` 型を新設、Firewall/VPN throughput、
+  Max VLAN/MAC/ACL、STP variant、PoE 等を SKU ごとに保持
+- **CAP カテゴリ**新設:機材能力を超える設定(VLAN数超過、PAgP非対応、
+  STP variant非対応等)を検出
+- Phase 01 に capability chip、ポート tooltip に PoE 情報を表示
+- テスト 46 → 50 ケース
+
+### Sprint 5 MVP — 「GUI でゼロから作成」モード
+- 当初計画(Sprint 3/4 の後に着手)を前倒し。ユーザーヒアリングでこれが
+  FACET の核心機能と判明したため優先度を繰り上げ
+- `src/engine/generators/{cisco,sonicwall}.ts` — draft(フォーム編集用データ)
+  → running-config / SonicOS CLI テキストのジェネレータを新設
+- 往復保証を構造で担保:生成テキストは既存の `parseCisco`/`parseSonicWall` で
+  再パースして `device.parsed` を作るため、検証パイプラインは投入モードと完全共通
+- Phase 00「作成モード」を有効化、Phase 03 が投入フォーム/GUI構築フォームに
+  動的切替
+- Cisco/SonicWall 双方の GUI フォーム(VLAN・ポート・FWルール・NAT等)を実装
+- 「⇩ ダウンロード」で生成テキストをそのまま実機投入可能
+- 往復保証テスト 20 ケース追加(`test/engine/builder.test.ts`)。テスト計 70 ケース
+- MVP スコープ外:capability 超過のリアルタイム入力制限、ACL/DHCP/HSRP ビルダー、
+  address-object range 型(いずれも Sprint 5 フォローアップで対応予定)
 
 ---
 

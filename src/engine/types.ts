@@ -363,3 +363,113 @@ export interface ResolvedSvc {
   from: number | null;
   to: number | null;
 }
+
+/* ==========================================================================
+ *  Builder(GUI 作成モード)— draft 型
+ *
+ *  設計方針: draft は「フォームで編集しやすい形」であって ParsedInterface と
+ *  同一である必要はない。generateCiscoConfig / generateSonicWallConfig が
+ *  draft → テキストに変換し、そのテキストを実際の parseCisco / parseSonicWall
+ *  で読み戻して device.parsed を作る。これにより生成ロジックとパースロジックの
+ *  二重管理を避け、「生成したものは必ず自分のパーサで読める」という往復保証が
+ *  構造的に成立する。
+ * ========================================================================== */
+
+/* ---- Cisco Builder ---- */
+export interface CiscoBuilderVlan {
+  id: string;      // '10'
+  name: string;    // 'STAFF'
+}
+
+export interface CiscoBuilderPort {
+  iface: string;                       // device.ports[].iface と一致
+  mode: IfaceMode | null;              // null = 未設定(config を出力しない)
+  accessVlan: string | null;
+  trunkNative: string | null;
+  trunkAllowed: string[];
+  portfast: boolean;
+  bpduguard: boolean;
+  shutdown: boolean;
+}
+
+export interface CiscoBuilderSvi {
+  vlan: string;
+  ip: string;
+  mask: string;
+}
+
+export interface CiscoBuilderSecurity {
+  sshOnly: boolean;       // true → transport input ssh
+  enableSecret: boolean;  // true → enable secret 9 <placeholder>
+  pwEncrypt: boolean;     // true → service password-encryption
+}
+
+export interface CiscoBuilderDraft {
+  hostname: string;
+  stpMode: StpVariant | null;
+  vlans: CiscoBuilderVlan[];
+  ports: CiscoBuilderPort[];
+  svis: CiscoBuilderSvi[];
+  security: CiscoBuilderSecurity;
+}
+
+/* ---- SonicWall Builder ---- */
+export interface SonicWallBuilderVlanSub {
+  vlanTag: string;
+  zone: string;
+  ip: string;
+  mask: string;
+  comment: string;
+}
+
+export interface SonicWallBuilderInterface {
+  iface: string;                          // device.ports[].iface と一致(X0 等)
+  enabled: boolean;
+  zone: string;
+  ip: string;
+  mask: string;
+  comment: string;
+  vlanSubs: SonicWallBuilderVlanSub[];
+}
+
+export interface SonicWallBuilderAddrObj {
+  name: string;
+  type: 'host' | 'network';
+  ip: string;        // host: このIP / network: ネットワークアドレス
+  mask: string;       // network のときのみ使用
+  zone: string;
+}
+
+export interface SonicWallBuilderSvcObj {
+  name: string;
+  proto: string;      // 'tcp' | 'udp' | 'icmp' 等
+  from: string;
+  to: string;
+}
+
+export interface SonicWallBuilderRule {
+  from: string;
+  to: string;
+  action: 'allow' | 'deny';
+  src: string;
+  dst: string;
+  service: string;
+  enabled: boolean;
+}
+
+export interface SonicWallBuilderNat {
+  orig: string;
+  trans: string;
+  iface: string;
+}
+
+export interface SonicWallBuilderDraft {
+  hostname: string;
+  interfaces: SonicWallBuilderInterface[];
+  addressObjects: SonicWallBuilderAddrObj[];
+  serviceObjects: SonicWallBuilderSvcObj[];
+  rules: SonicWallBuilderRule[];
+  natPolicies: SonicWallBuilderNat[];
+}
+
+export type BuilderDraft = CiscoBuilderDraft | SonicWallBuilderDraft;
