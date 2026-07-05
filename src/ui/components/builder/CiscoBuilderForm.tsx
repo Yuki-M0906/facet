@@ -110,7 +110,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
   }
 
   function addSvi() {
-    update({ svis: [...draft.svis, { vlan: draft.vlans[0]?.id ?? '', ip: '', mask: '255.255.255.0' }] });
+    update({ svis: [...draft.svis, { vlan: draft.vlans[0]?.id ?? '', ip: '', mask: '255.255.255.0', standbyGroup: null, standbyIp: null }] });
   }
   function updateSvi(i: number, patch: Partial<CiscoBuilderDraft['svis'][number]>) {
     const svis = draft.svis.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
@@ -430,6 +430,18 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
               onChange={(e) => updateSvi(i, { mask: e.target.value })}
             />
             {errors[`svi.${i}.mask`] && <span className="builder-errmsg">{errors[`svi.${i}.mask`]}</span>}
+            <span className="lbl">HSRP group</span>
+            <input
+              type="text" value={s.standbyGroup ?? ''} placeholder="1" className={errCls(`svi.${i}.standbyGroup`)}
+              onChange={(e) => updateSvi(i, { standbyGroup: e.target.value || null })} style={{ maxWidth: 60 }}
+            />
+            {errors[`svi.${i}.standbyGroup`] && <span className="builder-errmsg">{errors[`svi.${i}.standbyGroup`]}</span>}
+            <span className="lbl">HSRP 仮想IP</span>
+            <input
+              type="text" value={s.standbyIp ?? ''} placeholder="192.168.10.254" className={errCls(`svi.${i}.standbyIp`)}
+              onChange={(e) => updateSvi(i, { standbyIp: e.target.value || null })}
+            />
+            {errors[`svi.${i}.standbyIp`] && <span className="builder-errmsg">{errors[`svi.${i}.standbyIp`]}</span>}
             <span className="x" onClick={() => removeSvi(i)}>✕</span>
           </div>
         ))}

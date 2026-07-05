@@ -56,7 +56,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
         aclIn: null, aclOut: null, channelGroup: '1',
       },
     ],
-    svis: [{ vlan: '10', ip: '192.168.10.1', mask: '255.255.255.0' }],
+    svis: [{ vlan: '10', ip: '192.168.10.1', mask: '255.255.255.0', standbyGroup: '1', standbyIp: '192.168.10.254' }],
     acls: [{
       name: 'WEB-ACL',
       lines: [
@@ -98,6 +98,9 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
   });
   it('SVI (Vlan10) が読み戻せる', () => {
     expect(parsed.svis['10']).toEqual({ ip: '192.168.10.1', mask: '255.255.255.0' });
+  });
+  it('HSRP(standby group/仮想IP)が読み戻せる(Sprint 5 SF5-7)', () => {
+    expect(parsed.interfaces['Vlan10']!.standby).toEqual({ group: '1', ip: '192.168.10.254' });
   });
   it('security(sshOnly/enableSecret/pwEncrypt)が読み戻せる', () => {
     expect(parsed.sec.sshOnly).toBe(true);

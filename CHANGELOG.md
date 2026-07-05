@@ -4,6 +4,39 @@
 
 ---
 
+## v4.16.0 — 2026-07-05
+
+### Sprint 5 フォローアップ SF5-7 — HSRP(standby)ビルダー UI(Sprint 5 フォローアップ完了)
+
+- Cisco ビルダーフォームの SVI セクションに HSRP(`standby <group> ip <ip>`)の
+  作成 UI を新設。`CiscoBuilderSvi.standbyGroup`/`standbyIp`(両方 null =
+  未設定)で HSRP グループ番号・仮想 IP を GUI で設定できるようにした。
+- 調査の結果、`parseCisco` の standby 行の正規表現(`^standby\s+\d+\s+ip\s+
+  ([\d.]+)`)はグループ番号にマッチしつつも捕捉しておらず、仮想 IP のみを
+  `ParsedInterface.standby: string | null` として保持していた。GUI 側の
+  group フィールドを往復保証テストで検証できるようにするため、`\d+` を
+  `(\d+)` に変えてグループ番号も捕捉するよう拡張し、型を
+  `standby: StandbyConfig | null`(`{ group: string; ip: string }`)に変更した。
+  他に `.standby` を参照する箇所は verify.ts を含め存在しないため、既存動作への
+  影響はない。
+- priority/preempt 等の HSRP 拡張構文は `parseCisco` が現状未対応のため、
+  生成側でも意図的に含めない(「生成される全構文はパーサの正規表現に厳密
+  準拠する」という往復保証の方針を維持するため。将来パーサを拡張すれば
+  ビルダー側にもフィールドを足すだけで対応可能)。
+- HSRP グループ番号は 0〜255(HSRP v1 の範囲。本ビルダーは `standby version
+  2` を生成しないため拡張範囲の 0〜4095 は許可しない)の整数のみを許可する
+  形式検証を追加。グループ番号・仮想 IP は両方任意だが、片方だけ入力された
+  未完成な状態のみエラー表示する。
+- テスト 1 ケース追加(HSRP group/仮想 IP が `parseCisco` で正しく読み戻せる
+  こと)。テスト計 127 → 128 ケース、全 PASS(既存ケースへの回帰なし)。
+  ブラウザでの実地確認: VLAN・SVI を作成し、HSRP group=1・仮想IP=
+  192.168.10.254 を設定した状態で生成 → 検証まで一連の操作をエラーなく
+  完走できることを確認(コンソールエラー 0 件)。
+- **Sprint 5 フォローアップ(SF5-1〜SF5-7)が全項目完了**。次は Sprint 5.5
+  (全体 UI/UX デザイン刷新)。
+
+---
+
 ## v4.15.0 — 2026-07-05
 
 ### Sprint 5 フォローアップ SF5-6 — Port-channel/channel-group ビルダー UI

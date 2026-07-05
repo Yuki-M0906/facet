@@ -132,6 +132,15 @@ export interface SecondaryAddr {
   mask: string;
 }
 
+/** HSRP(standby)の仮想 IP 設定。`standby <group> ip <ip>` のみを対象とする。
+ * priority/preempt 等は parseCisco が未対応のため意図的に含めない(往復保証:
+ * 生成される全構文は parseCisco の正規表現に厳密準拠する必要があるため。
+ * Sprint 5 SF5-7)。 */
+export interface StandbyConfig {
+  group: string;
+  ip: string;
+}
+
 /**
  * SonicWall と Cisco の両パーサが出力する interface AST の共通形。
  * どちらか一方でしか出ない field は optional / null 既定で扱う。
@@ -159,7 +168,7 @@ export interface ParsedInterface {
   bpduguard: boolean;
   aclIn: string | null;
   aclOut: string | null;
-  standby: string | null;
+  standby: StandbyConfig | null;
   /* SonicWall 固有 */
   vlanTag: string | null;
   zone: string | null;
@@ -477,6 +486,9 @@ export interface CiscoBuilderSvi {
   vlan: string;
   ip: string;
   mask: string;
+  /** HSRP(standby)。どちらも null = 未設定(Sprint 5 SF5-7)。 */
+  standbyGroup: string | null;
+  standbyIp: string | null;
 }
 
 export interface CiscoBuilderSecurity {
