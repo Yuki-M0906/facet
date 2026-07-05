@@ -7,7 +7,7 @@
 
 :root {
   --bg:#0d0d10;--bg2:#111116;--panel:#16161c;--raised:#1c1c24;--hair:rgba(201,168,106,.16);
-  --hair-strong:rgba(201,168,106,.34);--ink:#ece7db;--muted:#928c7f;--faint:#5f5a51;
+  --hair-strong:rgba(201,168,106,.34);--ink:#ece7db;--muted:#928c7f;--faint:#817a6e;
   --gold:#c9a86a;--gold-lt:#e6cd94;--gold-dim:#8c764a;
   --emerald:#6bbf9a;--garnet:#d56b62;--topaz:#d9a648;--steel:#4a4a55;--sapphire:#6f93d4;
   --shadow:0 24px 60px -20px rgba(0,0,0,.7);
@@ -30,6 +30,12 @@ header.facet-header{position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);
 .ver{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--gold-lt);background:rgba(201,168,106,.08);border:1px solid var(--hair-strong);padding:3px 9px;border-radius:999px;margin-left:8px;text-transform:uppercase;vertical-align:3px;cursor:pointer;transition:background .2s,border-color .2s}
 .ver:hover{background:rgba(201,168,106,.18);border-color:var(--gold)}
 .headmeta{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em;text-transform:uppercase}
+/* Sprint 5.5: .bar は display:flex; flex-wrap:nowrap のため、ブランド行 + headmeta の
+ * 合計幅が収まらない狭い画面ではページ全体が横スクロールしてしまっていた
+ * (headmeta が画面外まで押し出されるだけで、折り返しも非表示もされなかったため)。
+ * 情報量の少ない装飾的要素から優先的に隠して幅を確保する。 */
+@media (max-width:640px){.headmeta{display:none}}
+@media (max-width:480px){.sub{display:none}}
 .stepper{border-top:1px solid var(--hair);background:rgba(0,0,0,.2)}
 .stepper .wrap{display:flex;gap:6px;padding:14px 28px;overflow-x:auto}
 .step{display:flex;align-items:center;gap:9px;padding:6px 16px 6px 6px;white-space:nowrap;opacity:.42;transition:opacity .4s}
