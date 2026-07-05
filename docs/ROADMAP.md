@@ -111,13 +111,18 @@
 **Sprint 4 完了(2026-07-05)**。着手前のコード調査で洗い出した6項目(S4-1〜S4-6)を
 すべて実装・テスト・実地確認済み。テスト 101 → 119 ケース。
 
-### Sprint 5 フォローアップ — GUI 作成モードの精度向上
-**所要:** 2〜3 日。MVP は完了済み(上記参照)。残作業:
+### Sprint 5 フォローアップ — GUI 作成モードの精度向上(進行中)
+**所要:** 2〜3 日。MVP は完了済み(上記参照)。影響度・使用頻度順に着手(2026-07-05)。
 
-- 機材 capability を超える設定は GUI 上でリアルタイム制限(現状は生成後の警告のみ)
-- ACL / DHCP プール / HSRP のビルダー UI 追加
-- address-object の range 型対応
-- Sprint 3/4 のパーサ精度・評価エンジン強化の成果をフォームに反映
+- [x] **SF5-1**(2026-07-05)機材 capability を超える設定は GUI 上でリアルタイム
+      制限(VLAN数/SVI数/VLANサブIF数が上限到達で追加ボタンを disabled 化。
+      従来の H-2 は警告表示のみだった)
+- [ ] **SF5-2** spanning-tree priority 入力欄をフォームに追加(S4-4 の成果を反映)
+- [ ] **SF5-3** ACL ビルダー UI(Cisco)
+- [ ] **SF5-4** DHCP プールビルダー UI(Cisco)
+- [ ] **SF5-5** address-object の range 型対応(SonicWall)
+- [ ] **SF5-6** Port-channel/channel-group ビルダー UI(Cisco、S4-1/S4-5 の成果を反映)
+- [ ] **SF5-7** HSRP(standby)ビルダー UI(Cisco)
 
 ### Sprint 5.5 — 全体 UI/UX デザイン刷新
 **所要:** 3〜4 日。Sprint 5 フォローアップ(作成モードのフォームに限定)とは別に、
