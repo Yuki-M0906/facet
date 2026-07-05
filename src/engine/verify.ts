@@ -267,6 +267,78 @@ export function verify(state: AppState): VerifyResult {
     }
   });
 
+  /* ---- LACP/EtherChannel 束の実効フォーミング判定(Sprint 4 S4-5) ----
+   * 上の links.forEach は「宣言された1本のリンクの両端モードが互換か」しか見ておらず、
+   * channel-group の全メンバーポートが実際に同一の対向機器に向いているか、
+   * 対向側でも一貫して同じチャネルグループとして扱われているかは検証していなかった。
+   * これらが崩れていると、個々のリンクのモードが互換でも LACP バンドルは意図通りに
+   * 形成されない。どのメンバーにもリンクが宣言されていない場合は判定不能として
+   * silent skip(既存の CAP capabilities 未定義時と同じ方針)。
+   */
+  devs.forEach((d) => {
+    if (d.role !== 'switch') return;
+    const channelGroups: Record<string, RuntimePort[]> = {};
+    d.ports.forEach((p) => {
+      if (p.cfg && p.cfg.channel) {
+        (channelGroups[p.cfg.channel.id] ||= []).push(p);
+      }
+    });
+    Object.keys(channelGroups).forEach((chId) => {
+      const members = channelGroups[chId]!;
+      if (members.length < 2) return;
+      const linked = members
+        .map((p) => {
+          const l = links.find((L) =>
+            (L.a.key === d.key && L.a.iface === p.iface) || (L.b.key === d.key && L.b.iface === p.iface));
+          if (!l) return null;
+          const peerEnd = l.a.key === d.key ? l.b : l.a;
+          return { peerKey: peerEnd.key, peerIface: peerEnd.iface };
+        })
+        .filter((x): x is { peerKey: string; peerIface: string } => x !== null);
+      if (linked.length < 2) return;
+
+      const where = d.key + ':channel-group ' + chId;
+      const distinctPeers = uniq(linked.map((x) => x.peerKey));
+      if (distinctPeers.length > 1) {
+        add('L1', 'err', where,
+          'channel-group ' + chId + ' のメンバーポートが複数の異なる機器(' + distinctPeers.join(', ') + ')に接続されています。',
+          'LACP/EtherChannel は同一の対向機器へ接続された物理リンクの束である必要があり、異なる機器への接続は束として成立しません。',
+          'メンバーポートの配線または channel-group 割当を見直してください。');
+        return;
+      }
+      const peerDev = devs.filter((x) => x.key === distinctPeers[0]!)[0];
+      if (!peerDev) return;
+
+      const peerChannelIdsOrNull = linked.map((x) => {
+        const pp = peerDev.ports.filter((pd) => pd.iface === x.peerIface)[0];
+        return pp && pp.cfg && pp.cfg.channel ? pp.cfg.channel.id : null;
+      });
+      if (peerChannelIdsOrNull.some((id) => id === null)) {
+        add('L1', 'err', where,
+          d.key + ' の channel-group ' + chId + ' に対し、対向 ' + peerDev.key + ' 側に channel-group 未設定のポートが含まれています。',
+          '片側だけ EtherChannel を構成しても対向が個別リンクとして扱うため、LACP バンドルが成立しません。',
+          peerDev.key + ' 側の対応ポートにも channel-group を設定してください。');
+        return;
+      }
+      const distinctPeerChannelIds = uniq(peerChannelIdsOrNull as string[]);
+      if (distinctPeerChannelIds.length > 1) {
+        add('L1', 'err', where,
+          d.key + ' の channel-group ' + chId + ' に対応する ' + peerDev.key + ' 側のポートが複数の異なる channel-group にまたがっています。',
+          '対向側のチャネルグループが不揃いだと LACP バンドルが正しく形成されません。',
+          peerDev.key + ' 側のチャネルグループ割当を統一してください。');
+        return;
+      }
+      const peerChannelId = distinctPeerChannelIds[0]!;
+      const peerMemberCount = peerDev.ports.filter((pp) => pp.cfg && pp.cfg.channel && pp.cfg.channel.id === peerChannelId).length;
+      if (peerMemberCount !== members.length) {
+        add('L1', 'lack', where,
+          'channel-group ' + chId + ' のメンバーポート数が対向と非対称です(' + d.key + '=' + members.length + ' / ' + peerDev.key + '=' + peerMemberCount + ')。',
+          'LACP はメンバー数が不揃いでも一部は束になり得ますが、意図した帯域・冗長性が得られない可能性があります。',
+          '双方のメンバーポート数を一致させてください。');
+      }
+    });
+  });
+
   /* ---- STP ---- */
   const parent: Record<string, string> = {};
   devs.forEach((d) => { parent[d.key] = d.key; });

@@ -14,6 +14,14 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
 - Duplex mismatch → err
 - MTU mismatch → lack
 - EtherChannel mode incompatibility (e.g. `active`↔`on`, `passive`↔`passive`) → err
+- **LACP/EtherChannel 束の実効フォーミング判定(Sprint 4 S4-5)**: 上記は宣言された
+  1本のリンク単位のモード互換性チェックのみ。`channel-group` の全メンバーポートが
+  実際に同一の対向機器に接続されているか、対向側でも一貫して同じチャネル
+  グループとして扱われているかを別途検証する(`verify.ts`、`devs.forEach` の
+  channel-group 単位の走査)。メンバーが複数の異なる機器に接続 → err。対向に
+  channel-group 未設定のポートが含まれる → err。対向側のポートが複数の異なる
+  channel-group にまたがる → err。メンバーポート数が対向と非対称 → lack。
+  どのメンバーにもリンクが宣言されていない場合は判定不能として silent skip。
 
 ## L2 — VLAN / Trunk
 - Access port references a VLAN not in the VLAN DB → lack (port → lack)
