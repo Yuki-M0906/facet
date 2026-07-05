@@ -19,9 +19,28 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.8.0';
+export const CURRENT_VERSION = '4.9.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.9.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-5 — LACP/EtherChannel 束の実効フォーミング判定',
+    changes: [
+      '[検証精度] 従来の「1リンク単位のチャネルモード互換性チェック」に加え、' +
+        'channel-group の全メンバーポートが実際に同一の対向機器に接続されて' +
+        'いるか、対向側でも一貫して同じチャネルグループとして扱われているかを' +
+        '検証するようにした。',
+      '[検出内容] メンバーポートが複数の異なる機器に接続 → err。対向に' +
+        'channel-group 未設定のポートが含まれる → err。対向側のポートが複数の' +
+        '異なる channel-group にまたがる → err。メンバーポート数が対向と' +
+        '非対称 → lack。どのメンバーにもリンク宣言が無ければ判定不能として' +
+        'silent skip。',
+      'テスト 5 ケース追加(対称構成での非発火、複数機器接続、対向側の' +
+        'channel-group 未設定、対向側の channel-group 不一致、メンバー数の' +
+        '非対称)。テスト計 112 → 117 ケース。',
+    ],
+  },
   {
     version: '4.8.0',
     date: '2026-07-05',

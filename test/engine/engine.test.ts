@@ -580,6 +580,113 @@ describe('STP — root election とブロックポート推定(Sprint 4 S4-4)', 
   });
 });
 
+describe('L1 — LACP/EtherChannel 束の実効フォーミング判定(Sprint 4 S4-5)', () => {
+  const rmTz6 = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm6 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+  const rTz6 = makeDev('R1', 'router', rmTz6, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+
+  function bundleFindings(V: ReturnType<typeof verify>) {
+    return V.findings.filter((f) => f.cat === 'L1' && f.desc.includes('channel-group'));
+  }
+
+  it('対称な構成(両側2メンバー・同一対向)では新規findingが発火しない', () => {
+    const sw1 = makeDev('SW1', 'switch', sm6, parseCisco(
+      'hostname SW1\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm6, parseCisco(
+      'hostname SW2\ninterface GigabitEthernet1/0/1\n channel-group 5 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 5 mode active\n!\n',
+    ));
+    [rTz6, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz6, switches: [sw1, sw2], devices: [rTz6, sw1, sw2], topoMode: 'manual', links };
+    expect(bundleFindings(verify(st)).length).toBe(0);
+  });
+
+  it('メンバーポートが複数の異なる機器に接続されていると err', () => {
+    const sw1 = makeDev('SW1', 'switch', sm6, parseCisco(
+      'hostname SW1\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm6, parseCisco(
+      'hostname SW2\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n',
+    ));
+    const sw3 = makeDev('SW3', 'switch', sm6, parseCisco(
+      'hostname SW3\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n',
+    ));
+    [rTz6, sw1, sw2, sw3].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW3', iface: 'GigabitEthernet1/0/1' } },
+    ];
+    const st: AppState = { router: rTz6, switches: [sw1, sw2, sw3], devices: [rTz6, sw1, sw2, sw3], topoMode: 'manual', links };
+    const fs = bundleFindings(verify(st));
+    expect(fs.some((f) => f.level === 'err' && f.desc.includes('複数の異なる機器'))).toBe(true);
+  });
+
+  it('対向側に channel-group 未設定のポートが含まれると err', () => {
+    const sw1 = makeDev('SW1', 'switch', sm6, parseCisco(
+      'hostname SW1\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm6, parseCisco(
+      'hostname SW2\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n switchport mode trunk\n!\n',
+    ));
+    [rTz6, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz6, switches: [sw1, sw2], devices: [rTz6, sw1, sw2], topoMode: 'manual', links };
+    const fs = bundleFindings(verify(st));
+    expect(fs.some((f) => f.level === 'err' && f.desc.includes('channel-group 未設定'))).toBe(true);
+  });
+
+  it('対向側のポートが複数の異なる channel-group にまたがっていると err', () => {
+    const sw1 = makeDev('SW1', 'switch', sm6, parseCisco(
+      'hostname SW1\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm6, parseCisco(
+      'hostname SW2\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 2 mode active\n!\n',
+    ));
+    [rTz6, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz6, switches: [sw1, sw2], devices: [rTz6, sw1, sw2], topoMode: 'manual', links };
+    const fs = bundleFindings(verify(st));
+    expect(fs.some((f) => f.level === 'err' && f.desc.includes('複数の異なる channel-group'))).toBe(true);
+  });
+
+  it('メンバーポート数が対向と非対称だと lack', () => {
+    const sw1 = makeDev('SW1', 'switch', sm6, parseCisco(
+      'hostname SW1\ninterface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm6, parseCisco(
+      'hostname SW2\ninterface GigabitEthernet1/0/1\n channel-group 5 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 5 mode active\n!\n' +
+      'interface GigabitEthernet1/0/3\n channel-group 5 mode active\n!\n',
+    ));
+    [rTz6, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz6, switches: [sw1, sw2], devices: [rTz6, sw1, sw2], topoMode: 'manual', links };
+    const fs = bundleFindings(verify(st));
+    expect(fs.some((f) => f.level === 'lack' && f.desc.includes('非対称') && f.desc.includes('SW1=2') && f.desc.includes('SW2=3'))).toBe(true);
+  });
+});
+
 /* ===== matrix ===== */
 
 const posSub = V.subnets.filter((s) => s.zone === 'POS')[0]!;
