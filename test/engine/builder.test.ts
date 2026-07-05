@@ -146,8 +146,9 @@ describe('generateSonicWallConfig → parseSonicWall 往復保証', () => {
       },
     ],
     addressObjects: [
-      { name: 'net-staff', type: 'network', ip: '192.168.10.0', mask: '255.255.255.0', zone: 'LAN' },
-      { name: 'host-srv1', type: 'host', ip: '192.168.10.50', mask: '', zone: 'LAN' },
+      { name: 'net-staff', type: 'network', ip: '192.168.10.0', mask: '255.255.255.0', from: '', to: '', zone: 'LAN' },
+      { name: 'host-srv1', type: 'host', ip: '192.168.10.50', mask: '', from: '', to: '', zone: 'LAN' },
+      { name: 'range-guest', type: 'range', ip: '', mask: '', from: '192.168.30.100', to: '192.168.30.150', zone: '' },
     ],
     serviceObjects: [{ name: 'svc-https', proto: 'tcp', from: '443', to: '443' }],
     rules: [
@@ -181,6 +182,14 @@ describe('generateSonicWallConfig → parseSonicWall 往復保証', () => {
     const hostObj = parsed.addr['host-srv1']!;
     expect(hostObj.type).toBe('host');
     if (hostObj.type === 'host') expect(hostObj.ip).toBe('192.168.10.50');
+  });
+  it('address-object (range) が読み戻せる(SF5-5)', () => {
+    const rangeObj = parsed.addr['range-guest']!;
+    expect(rangeObj.type).toBe('range');
+    if (rangeObj.type === 'range') {
+      expect(rangeObj.from).toBe('192.168.30.100');
+      expect(rangeObj.to).toBe('192.168.30.150');
+    }
   });
   it('service-object が読み戻せる', () => {
     expect(parsed.svc['svc-https']).toEqual({ proto: 'tcp', from: 443, to: 443 });

@@ -512,11 +512,17 @@ export interface SonicWallBuilderInterface {
   vlanSubs: SonicWallBuilderVlanSub[];
 }
 
+/** アドレスオブジェクト(Sprint 5 SF5-5 で range 型を追加)。
+ * パース側の AddressObject.range 型は zone を持たない(parseSonicWall の正規表現が
+ * range 構文では zone 句を読み取らないため)。生成側もそれに合わせ、range のときは
+ * zone を出力しない。 */
 export interface SonicWallBuilderAddrObj {
   name: string;
-  type: 'host' | 'network';
+  type: 'host' | 'network' | 'range';
   ip: string;        // host: このIP / network: ネットワークアドレス
   mask: string;       // network のときのみ使用
+  from: string;        // range のときのみ使用(開始IP)
+  to: string;          // range のときのみ使用(終了IP)
   zone: string;
 }
 

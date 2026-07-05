@@ -45,7 +45,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
   }
 
   function addAddrObj() {
-    update({ addressObjects: [...draft.addressObjects, { name: '', type: 'network', ip: '', mask: '255.255.255.0', zone: 'LAN' }] });
+    update({ addressObjects: [...draft.addressObjects, { name: '', type: 'network', ip: '', mask: '255.255.255.0', from: '', to: '', zone: 'LAN' }] });
   }
   function updateAddrObj(i: number, patch: Partial<SonicWallBuilderDraft['addressObjects'][number]>) {
     update({ addressObjects: draft.addressObjects.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
@@ -183,27 +183,47 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
               onChange={(e) => updateAddrObj(i, { name: e.target.value })}
             />
             {errors[`addr.${i}.name`] && <span className="builder-errmsg">{errors[`addr.${i}.name`]}</span>}
-            <select value={a.type} onChange={(e) => updateAddrObj(i, { type: e.target.value as 'host' | 'network' })}>
+            <select value={a.type} onChange={(e) => updateAddrObj(i, { type: e.target.value as 'host' | 'network' | 'range' })}>
               <option value="host">host</option>
               <option value="network">network</option>
+              <option value="range">range</option>
             </select>
-            <span className="lbl">IP</span>
-            <input
-              type="text" value={a.ip} placeholder="192.168.10.0" className={errCls(`addr.${i}.ip`)}
-              onChange={(e) => updateAddrObj(i, { ip: e.target.value })}
-            />
-            {errors[`addr.${i}.ip`] && <span className="builder-errmsg">{errors[`addr.${i}.ip`]}</span>}
-            {a.type === 'network' && (
+            {a.type === 'range' ? (
               <>
+                <span className="lbl">From</span>
                 <input
-                  type="text" value={a.mask} placeholder="255.255.255.0" className={errCls(`addr.${i}.mask`)}
-                  onChange={(e) => updateAddrObj(i, { mask: e.target.value })}
+                  type="text" value={a.from} placeholder="192.168.10.100" className={errCls(`addr.${i}.from`)}
+                  onChange={(e) => updateAddrObj(i, { from: e.target.value })}
                 />
-                {errors[`addr.${i}.mask`] && <span className="builder-errmsg">{errors[`addr.${i}.mask`]}</span>}
+                {errors[`addr.${i}.from`] && <span className="builder-errmsg">{errors[`addr.${i}.from`]}</span>}
+                <span className="lbl">To</span>
+                <input
+                  type="text" value={a.to} placeholder="192.168.10.150" className={errCls(`addr.${i}.to`)}
+                  onChange={(e) => updateAddrObj(i, { to: e.target.value })}
+                />
+                {errors[`addr.${i}.to`] && <span className="builder-errmsg">{errors[`addr.${i}.to`]}</span>}
+              </>
+            ) : (
+              <>
+                <span className="lbl">IP</span>
+                <input
+                  type="text" value={a.ip} placeholder="192.168.10.0" className={errCls(`addr.${i}.ip`)}
+                  onChange={(e) => updateAddrObj(i, { ip: e.target.value })}
+                />
+                {errors[`addr.${i}.ip`] && <span className="builder-errmsg">{errors[`addr.${i}.ip`]}</span>}
+                {a.type === 'network' && (
+                  <>
+                    <input
+                      type="text" value={a.mask} placeholder="255.255.255.0" className={errCls(`addr.${i}.mask`)}
+                      onChange={(e) => updateAddrObj(i, { mask: e.target.value })}
+                    />
+                    {errors[`addr.${i}.mask`] && <span className="builder-errmsg">{errors[`addr.${i}.mask`]}</span>}
+                  </>
+                )}
+                <span className="lbl">Zone</span>
+                <input type="text" value={a.zone} placeholder="LAN" onChange={(e) => updateAddrObj(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
               </>
             )}
-            <span className="lbl">Zone</span>
-            <input type="text" value={a.zone} placeholder="LAN" onChange={(e) => updateAddrObj(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
             <span className="x" onClick={() => removeAddrObj(i)}>✕</span>
           </div>
         ))}

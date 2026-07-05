@@ -125,7 +125,10 @@
       適用可能に。ACL 削除時は参照ポートの適用も自動解除
 - [x] **SF5-4**(2026-07-05)DHCP プールビルダー UI(Cisco)。プール名・
       ネットワーク・マスク・default-router を GUI で設定可能に
-- [ ] **SF5-5** address-object の range 型対応(SonicWall)
+- [x] **SF5-5**(2026-07-05)address-object の range 型対応(SonicWall)。
+      開始/終了 IP を GUI で指定して `address-object ipv4 <name> range` を
+      生成可能に。パース/評価側(evalFW)は既に対応済みで、ビルダー UI 側の
+      抜けを埋めた形
 - [ ] **SF5-6** Port-channel/channel-group ビルダー UI(Cisco、S4-1/S4-5 の成果を反映)
 - [ ] **SF5-7** HSRP(standby)ビルダー UI(Cisco)
 

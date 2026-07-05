@@ -46,6 +46,16 @@ export function isNonEmpty(s: string): boolean {
   return s.trim().length > 0;
 }
 
+/** 2つの IPv4 アドレスを比較する(呼び出し側で isValidIp 済みであることを前提とする)。 */
+function ipLessOrEqual(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 4; i++) {
+    if (pa[i] !== pb[i]) return pa[i]! < pb[i]!;
+  }
+  return true;
+}
+
 export interface FieldError {
   path: string;   // 'ports[3].accessVlan' のような識別子(表示はしないが将来のフォーカス連携用)
   message: string;
@@ -141,6 +151,14 @@ export function validateSonicWallDraft(draft: SonicWallBuilderDraft): ErrorMap {
     if (!isNonEmpty(a.name)) errors[`addr.${i}.name`] = '名前を入力してください';
     if (a.type === 'host') {
       if (!isValidIp(a.ip)) errors[`addr.${i}.ip`] = 'IP アドレスの形式が不正です';
+    } else if (a.type === 'range') {
+      const fromOk = isValidIp(a.from);
+      const toOk = isValidIp(a.to);
+      if (!fromOk) errors[`addr.${i}.from`] = '開始 IP アドレスの形式が不正です';
+      if (!toOk) errors[`addr.${i}.to`] = '終了 IP アドレスの形式が不正です';
+      if (fromOk && toOk && !ipLessOrEqual(a.from, a.to)) {
+        errors[`addr.${i}.to`] = '終了 IP は開始 IP 以上にしてください';
+      }
     } else {
       if (!isValidIp(a.ip)) errors[`addr.${i}.ip`] = 'ネットワークアドレスの形式が不正です';
       if (!isValidMask(a.mask)) errors[`addr.${i}.mask`] = 'サブネットマスクの形式が不正です';
