@@ -107,6 +107,16 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     update({ svis: draft.svis.filter((_, idx) => idx !== i) });
   }
 
+  function addDhcpPool() {
+    update({ dhcpPools: [...draft.dhcpPools, { name: '', network: '', mask: '255.255.255.0', gw: '' }] });
+  }
+  function updateDhcpPool(i: number, patch: Partial<CiscoBuilderDraft['dhcpPools'][number]>) {
+    update({ dhcpPools: draft.dhcpPools.map((d, idx) => (idx === i ? { ...d, ...patch } : d)) });
+  }
+  function removeDhcpPool(i: number) {
+    update({ dhcpPools: draft.dhcpPools.filter((_, idx) => idx !== i) });
+  }
+
   const vlanAtLimit = !!(caps?.maxVlansSupported && draft.vlans.length >= caps.maxVlansSupported);
   const sviAtLimit = !!(caps?.maxSviCount && draft.svis.length >= caps.maxSviCount);
   const configuredPortCount = draft.ports.filter((p) => p.mode !== null || p.shutdown).length;
@@ -323,6 +333,40 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
               : <>SVI 数 <b>{draft.svis.length}</b> / 上限 {caps.maxSviCount}</>}
           </div>
         )}
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">DHCP プール(任意)</div>
+        {draft.dhcpPools.map((d, i) => (
+          <div className="builder-row" key={i}>
+            <span className="lbl">名前</span>
+            <input
+              type="text" value={d.name} placeholder="STAFF-POOL" className={errCls(`dhcp.${i}.name`)}
+              onChange={(e) => updateDhcpPool(i, { name: e.target.value })}
+            />
+            {errors[`dhcp.${i}.name`] && <span className="builder-errmsg">{errors[`dhcp.${i}.name`]}</span>}
+            <span className="lbl">Network</span>
+            <input
+              type="text" value={d.network} placeholder="192.168.10.0" className={errCls(`dhcp.${i}.network`)}
+              onChange={(e) => updateDhcpPool(i, { network: e.target.value })}
+            />
+            {errors[`dhcp.${i}.network`] && <span className="builder-errmsg">{errors[`dhcp.${i}.network`]}</span>}
+            <span className="lbl">Mask</span>
+            <input
+              type="text" value={d.mask} placeholder="255.255.255.0" className={errCls(`dhcp.${i}.mask`)}
+              onChange={(e) => updateDhcpPool(i, { mask: e.target.value })}
+            />
+            {errors[`dhcp.${i}.mask`] && <span className="builder-errmsg">{errors[`dhcp.${i}.mask`]}</span>}
+            <span className="lbl">default-router</span>
+            <input
+              type="text" value={d.gw} placeholder="192.168.10.1" className={errCls(`dhcp.${i}.gw`)}
+              onChange={(e) => updateDhcpPool(i, { gw: e.target.value })}
+            />
+            {errors[`dhcp.${i}.gw`] && <span className="builder-errmsg">{errors[`dhcp.${i}.gw`]}</span>}
+            <span className="x" onClick={() => removeDhcpPool(i)}>✕</span>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addDhcpPool}>+ DHCP プール追加</button>
       </div>
     </div>
   );

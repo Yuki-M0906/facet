@@ -6,10 +6,10 @@
  * 厳密準拠する。test/engine/builder.test.ts でこの保証を機械的に検証する。
  *
  * 意図的に省いているもの(Sprint 5 MVP スコープ外):
- * - description 行、DHCP プール、standby(HSRP)、secondary IP、
- *   speed/duplex/mtu の個別指定 — GUI フォームにフィールドを追加すれば
- *   この生成関数にも数行足すだけで対応可能(ParsedInterface 側は既に対応済)。
- *   ACL 本体・ip access-group の適用は Sprint 5 SF5-3 で対応済み。
+ * - description 行、standby(HSRP)、secondary IP、speed/duplex/mtu の個別指定 —
+ *   GUI フォームにフィールドを追加すればこの生成関数にも数行足すだけで対応可能
+ *   (ParsedInterface 側は既に対応済)。
+ *   ACL 本体・ip access-group の適用は Sprint 5 SF5-3、DHCP プールは SF5-4 で対応済み。
  */
 
 import type { CiscoBuilderDraft, CiscoBuilderPort } from '../types';
@@ -66,6 +66,13 @@ export function generateCiscoConfig(draft: CiscoBuilderDraft): string {
   draft.svis.forEach((s) => {
     out.push('interface Vlan' + s.vlan);
     out.push(' ip address ' + s.ip + ' ' + s.mask);
+    out.push('!');
+  });
+
+  draft.dhcpPools.forEach((d) => {
+    out.push('ip dhcp pool ' + d.name);
+    if (d.network && d.mask) out.push(' network ' + d.network + ' ' + d.mask);
+    if (d.gw) out.push(' default-router ' + d.gw);
     out.push('!');
   });
 

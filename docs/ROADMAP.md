@@ -123,7 +123,8 @@
 - [x] **SF5-3**(2026-07-05)ACL ビルダー UI(Cisco)。名前付き ACL の
       permit/deny 行を GUI で組み立て、ポートの ip access-group(in/out)として
       適用可能に。ACL 削除時は参照ポートの適用も自動解除
-- [ ] **SF5-4** DHCP プールビルダー UI(Cisco)
+- [x] **SF5-4**(2026-07-05)DHCP プールビルダー UI(Cisco)。プール名・
+      ネットワーク・マスク・default-router を GUI で設定可能に
 - [ ] **SF5-5** address-object の range 型対応(SonicWall)
 - [ ] **SF5-6** Port-channel/channel-group ビルダー UI(Cisco、S4-1/S4-5 の成果を反映)
 - [ ] **SF5-7** HSRP(standby)ビルダー UI(Cisco)

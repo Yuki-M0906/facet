@@ -139,6 +139,7 @@ export function initCiscoDraft(d: Device): CiscoBuilderDraft {
     })),
     svis: [],
     acls: [],
+    dhcpPools: [],
     security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
   };
 }

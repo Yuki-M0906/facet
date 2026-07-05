@@ -4,6 +4,26 @@
 
 ---
 
+## v4.13.0 — 2026-07-05
+
+### Sprint 5 フォローアップ SF5-4 — DHCP プールビルダー UI
+
+- Cisco ビルダーフォームに DHCP プール(`ip dhcp pool`)作成 UI を新設
+  (`CiscoBuilderDraft.dhcpPools: CiscoBuilderDhcpPool[]`)。プール名・
+  ネットワークアドレス・サブネットマスク・default-router を GUI で設定できる。
+- パース側の `DhcpPool` は `network` を CIDR 表記に正規化済みの結果として
+  保持するが、生成側は `network <ip> <mask>` という元の2トークン形式で
+  出力する必要があるため、ビルダー側では ip/mask を別フィールドとして保持する
+  設計にした(往復時に `subnetOf()` で再度 CIDR 化される)。
+- IP アドレス・サブネットマスクの形式検証を追加。
+- テスト 1 ケース追加(`network`/`default-router` が `parseCisco` で正しい
+  CIDR 表記に変換されて読み戻せること)。テスト計 122 → 123 ケース、全 PASS
+  (既存ケースへの回帰なし)。ブラウザでの実地確認: DHCP プールを作成し、
+  生成 → 検証まで一連の操作をエラーなく完走できることを確認
+  (コンソールエラー 0 件)。
+
+---
+
 ## v4.12.0 — 2026-07-05
 
 ### Sprint 5 フォローアップ SF5-3 — ACL ビルダー UI

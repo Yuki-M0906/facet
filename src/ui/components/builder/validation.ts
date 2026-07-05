@@ -106,6 +106,13 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     });
   });
 
+  draft.dhcpPools.forEach((d, i) => {
+    if (!isNonEmpty(d.name)) errors[`dhcp.${i}.name`] = 'プール名を入力してください';
+    if (!isValidIp(d.network)) errors[`dhcp.${i}.network`] = 'ネットワークアドレスの形式が不正です';
+    if (!isValidMask(d.mask)) errors[`dhcp.${i}.mask`] = 'サブネットマスクの形式が不正です';
+    if (!isValidIp(d.gw)) errors[`dhcp.${i}.gw`] = 'IP アドレスの形式が不正です';
+  });
+
   return errors;
 }
 
