@@ -25,6 +25,70 @@ import type {
   VerifyResult,
 } from './types';
 
+/* ---- STP root election + ブロックポート推定(Sprint 4 S4-4) ----
+ * 簡易モデル。ルートブリッジは priority(未設定は IEEE/Cisco 既定値 32768)が
+ * 最小のスイッチとする。同点の場合、実機は MAC アドレスで比較するが FACET は
+ * それを保持していないため device key の文字列比較で決定論的にタイブレークする
+ * (実機と一致しない可能性がある簡易化)。
+ * ルートからの BFS 最短距離(ホップ数)で各デバイスの「近さ」を近似し、
+ * スパニングツリーに含まれない冗長エッジについて、ルートから遠い側のポートが
+ * ブロックされると推定する。両端が同じ距離の場合は実際のリンクコストや
+ * bridge ID 比較が必要になり本モデルでは決定できないため "ambiguous" とする。
+ * router も L2 配線グラフのノードとして扱う(union-find のループ検出と同じグラフ)が、
+ * STP はスイッチ間のプロトコルのためルート候補にはしない。
+ */
+function electStpRootAndBlockingEdges(
+  devs: Device[],
+  links: Link[],
+): {
+  root: Device | null;
+  blockingEdges: Array<{ link: Link; blockedSide: 'a' | 'b' | 'ambiguous' }>;
+} {
+  const switches = devs.filter((d) => d.role === 'switch');
+  if (!switches.length) return { root: null, blockingEdges: [] };
+
+  const priorityOf = (d: Device): number => {
+    const p = d.parsed as { stpPriority?: number | null } | null;
+    return p && typeof p.stpPriority === 'number' ? p.stpPriority : 32768;
+  };
+  const root = switches.slice().sort((a, b) => {
+    const diff = priorityOf(a) - priorityOf(b);
+    return diff !== 0 ? diff : a.key.localeCompare(b.key);
+  })[0]!;
+
+  const adjacency: Record<string, Array<{ neighbor: string; link: Link }>> = {};
+  devs.forEach((d) => { adjacency[d.key] = []; });
+  links.forEach((L) => {
+    (adjacency[L.a.key] ||= []).push({ neighbor: L.b.key, link: L });
+    (adjacency[L.b.key] ||= []).push({ neighbor: L.a.key, link: L });
+  });
+
+  const dist: Record<string, number> = { [root.key]: 0 };
+  const visitedEdges = new Set<Link>();
+  const queue: string[] = [root.key];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    (adjacency[cur] || []).forEach(({ neighbor, link }) => {
+      if (dist[neighbor] === undefined) {
+        dist[neighbor] = dist[cur]! + 1;
+        visitedEdges.add(link);
+        queue.push(neighbor);
+      }
+    });
+  }
+
+  const blockingEdges: Array<{ link: Link; blockedSide: 'a' | 'b' | 'ambiguous' }> = [];
+  links.forEach((L) => {
+    if (visitedEdges.has(L)) return;
+    const da = dist[L.a.key];
+    const db = dist[L.b.key];
+    if (da === undefined || db === undefined) return;
+    blockingEdges.push({ link: L, blockedSide: da === db ? 'ambiguous' : da > db ? 'a' : 'b' });
+  });
+
+  return { root, blockingEdges };
+}
+
 export function verify(state: AppState): VerifyResult {
   const F: Finding[] = [];
   const devs: Device[] = state.devices;
@@ -228,15 +292,31 @@ export function verify(state: AppState): VerifyResult {
      * 実機の稼働状態そのものは検証できないため、断定はしない。 */
     const stpUnset = devs.filter((d) => d.role === 'switch' && d.parsed && !(d.parsed as { stpMode?: string }).stpMode);
     const edge = loopEdge as Link | null;
+    const { root: stpRoot, blockingEdges } = electStpRootAndBlockingEdges(devs, links);
+    const rootNote = stpRoot
+      ? ' 推定ルートブリッジ: ' + stpRoot.key + '(priority ' +
+        (((stpRoot.parsed as { stpPriority?: number | null } | null)?.stpPriority) ?? 32768) + ')。' +
+        '推定ブロックポート: ' +
+        (blockingEdges.length
+          ? blockingEdges.map((b) => {
+              if (b.blockedSide === 'ambiguous') {
+                return b.link.a.key + ' ↔ ' + b.link.b.key + '(優先度・距離が同点のため側を特定できず)';
+              }
+              const blocked = b.blockedSide === 'a' ? b.link.a : b.link.b;
+              return blocked.key + ':' + blocked.iface;
+            }).join(' / ')
+          : '特定不可') +
+        '(簡易モデル:priority比較 + ホップ数近似。実機のMACアドレス・実リンクコストは考慮していません)'
+      : '';
     add('STP', 'lack',
       edge ? edge.a.key + ' ↔ ' + edge.b.key : 'topology',
       'L2ループが存在します' +
         (stpUnset.length
           ? '(STPモード未設定のスイッチあり。機種既定の Rapid-PVST+ で保護されていると推定されます)'
           : '(STPで1ポートがブロック)') + '。',
-      stpUnset.length
+      (stpUnset.length
         ? '本カタログの全 SKU は spanning-tree mode 未指定時 Rapid-PVST+ が既定のため、通常はSTPがループを保護します。ただし FACET は静的解析であり実機の稼働状態そのものは検証できません。'
-        : '冗長配線はループを生み、STP無しではブロードキャストストームに直結。',
+        : '冗長配線はループを生み、STP無しではブロードキャストストームに直結。') + rootNote,
       stpUnset.length
         ? stpUnset.map((s) => s.key).join(',') + ' に spanning-tree mode を明示設定し、既定動作への依存を無くすことを推奨。'
         : 'STPが片側ポートをブロックします。意図的な冗長か確認を。',

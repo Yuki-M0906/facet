@@ -30,6 +30,15 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
   カタログの全 SKU は `spanning-tree mode` 未指定時 Rapid-PVST+ が既定と判明したため、
   以前の「未設定なら err」判定を撤回。未設定でも既定でループが保護されている前提とし、
   明示設定を推奨するメッセージに変更)。
+- **root election(Sprint 4 S4-4)**: ループ検出時、`electStpRootAndBlockingEdges()`
+  (`verify.ts`)が簡易的なルートブリッジ選出とブロックポート推定を行い、finding の
+  `why` に付記する。ルートブリッジは priority(`spanning-tree priority` /
+  `spanning-tree vlan <list> priority`、未設定は IEEE/Cisco 既定値 32768)が最小の
+  スイッチ。同点時は device key の文字列比較でタイブレーク(実機は MAC アドレスで
+  比較するが FACET は保持していないための簡易化、明記あり)。ルートからの BFS
+  ホップ数で近似した「近さ」を使い、スパニングツリーに含まれない冗長エッジの
+  うち両端の距離が異なるものはブロック側を一意に特定し、同距離の場合は
+  「特定できず」と誠実に報告する(実リンクコストや bridge ID 比較が必要なため)。
 - `portfast` on a trunk port → lack
 
 ## L3 — Reachability

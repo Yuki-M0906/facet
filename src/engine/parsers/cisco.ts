@@ -103,6 +103,7 @@ export function parseCisco(text: string): CiscoParsed {
     interfaces: {},
     svis: {},
     stpMode: null,
+    stpPriority: null,
     defaultGw: null,
     routes: [],
     acls: {},
@@ -160,6 +161,10 @@ export function parseCisco(text: string): CiscoParsed {
 
     if ((m = t.match(/^hostname\s+(\S+)/))) { out.hostname = m[1]!; continue; }
     if ((m = t.match(/^spanning-tree\s+mode\s+(\S+)/))) { out.stpMode = m[1]!; continue; }
+    if ((m = t.match(/^spanning-tree\s+(?:vlan\s+[\d,\-]+\s+)?priority\s+(\d+)/))) {
+      out.stpPriority = Number(m[1]);
+      continue;
+    }
     if ((m = t.match(/^ip\s+default-gateway\s+([\d.]+)/))) { out.defaultGw = m[1]!; continue; }
     if ((m = t.match(/^ip\s+route\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/))) {
       out.routes.push({ dst: m[1]!, mask: m[2]!, nh: m[3]! });

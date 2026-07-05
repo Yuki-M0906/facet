@@ -71,9 +71,10 @@ export function PhaseBuild() {
       <div className="kicker">Phase 03 — Build Configuration</div>
       <h1 className="title">GUI でコンフィグを作成</h1>
       <p className="lede">
-        VLAN・ポート設定・ファイアウォールルールなどを GUI で組み立てます。
-        「生成」を押すと <b>Cisco IOS / SonicOS 形式のテキストに変換</b>され、そのまま検証パイプラインに乗ります。
-        投入モードとの違いはコンフィグの入手経路だけで、以降の検証・出力は完全に共通です。
+        VLAN・ポート設定・ファイアウォールルールなどを、画面のフォームに入力します。
+        入力が終わったら「生成」を押してください。
+        すると<b>Cisco IOS / SonicOS 形式の実際のコンフィグテキスト</b>が作られます。
+        あとは、コンフィグをアップロードした場合とまったく同じ流れで検証されます。
       </p>
 
       {devices.map((d) => {
