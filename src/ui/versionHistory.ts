@@ -19,9 +19,26 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.16.0';
+export const CURRENT_VERSION = '4.16.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.16.1',
+    date: '2026-07-06',
+    title: 'Sprint 5.5 着手 — ヘッダー横漏れ修正 + コントラスト比改善',
+    changes: [
+      '[修正] 幅640px未満(スマートフォン等)でヘッダーのタグライン("STATIC ' +
+        'VERIFICATION..." )が画面外へ押し出され、ページ全体が横スクロールして' +
+        'しまう不具合を修正。狭い画面ではタグラインと副題("Network ' +
+        'Verification Atelier")を非表示にし、幅に収まるようにした。',
+      '[アクセシビリティ改善] 補足テキスト全般に使う --faint 色が背景に対して' +
+        'コントラスト比 約2.83:1 しかなく、WCAG AA(通常文字 4.5:1)を満たして' +
+        'いなかった。約4.6:1 まで明るくし、AA 基準を満たすようにした。',
+      'Sprint 5.5(全体UI/UX刷新)着手前のスクリーンショットベースレビューで' +
+        '発見(横漏れ・シャーシSVGのモバイル未対応・検証レポートの情報密度の' +
+        '3点を確認。今回はそのうち影響度が高く低リスクな2点を先行修正)。',
+    ],
+  },
   {
     version: '4.16.0',
     date: '2026-07-05',
