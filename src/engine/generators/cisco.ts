@@ -34,6 +34,7 @@ export function generateCiscoConfig(draft: CiscoBuilderDraft): string {
 
   out.push('hostname ' + (draft.hostname || 'SWITCH'));
   if (draft.stpMode) out.push('spanning-tree mode ' + draft.stpMode);
+  if (draft.stpPriority !== null) out.push('spanning-tree priority ' + draft.stpPriority);
   if (draft.security.pwEncrypt) out.push('service password-encryption');
   if (draft.security.enableSecret) out.push('enable secret 9 $facet$generated$');
   out.push('!');

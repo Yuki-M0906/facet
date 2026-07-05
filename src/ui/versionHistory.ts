@@ -19,9 +19,23 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.10.1';
+export const CURRENT_VERSION = '4.11.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.11.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-2 — STP priority 入力欄',
+    changes: [
+      '[機能追加] Cisco ビルダーフォームに spanning-tree priority の選択欄を追加。' +
+        'Sprint 4 S4-4 で実装した STP root election 推定と対応させ、GUI から' +
+        'ルートブリッジになりやすさを制御できるようにした。',
+      '実機で有効な16段階(0, 4096, ..., 61440)のみを select の選択肢とし、' +
+        '不正な値を入力できない設計にした(既存の「存在しないポートは作れない」' +
+        '設計哲学と同じ考え方)。',
+      'テスト 1 ケース追加(stpPriority の往復保証)。テスト計 119 → 120 ケース。',
+    ],
+  },
   {
     version: '4.10.1',
     date: '2026-07-05',

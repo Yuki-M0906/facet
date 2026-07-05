@@ -130,6 +130,7 @@ export function initCiscoDraft(d: Device): CiscoBuilderDraft {
   return {
     hostname: d.key,
     stpMode: 'rapid-pvst',
+    stpPriority: null,
     vlans: [],
     ports: d.ports.map((p) => ({
       iface: p.iface, mode: null, accessVlan: null,
