@@ -469,6 +469,16 @@ export interface CiscoBuilderAcl {
   lines: AclLine[];
 }
 
+/** DHCP プール(Sprint 5 SF5-4)。パース側の DhcpPool は network を CIDR に正規化済みの
+ * 結果を保持するが、生成側は `network <ip> <mask>` という元の2トークン形式で出力する
+ * 必要があるため、ip/mask を別フィールドとして保持する。 */
+export interface CiscoBuilderDhcpPool {
+  name: string;
+  network: string;   // ネットワークアドレス(例: 192.168.10.0)
+  mask: string;
+  gw: string;         // default-router
+}
+
 export interface CiscoBuilderDraft {
   hostname: string;
   stpMode: StpVariant | null;
@@ -479,6 +489,7 @@ export interface CiscoBuilderDraft {
   ports: CiscoBuilderPort[];
   svis: CiscoBuilderSvi[];
   acls: CiscoBuilderAcl[];
+  dhcpPools: CiscoBuilderDhcpPool[];
   security: CiscoBuilderSecurity;
 }
 

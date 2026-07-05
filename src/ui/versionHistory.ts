@@ -19,9 +19,22 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.12.0';
+export const CURRENT_VERSION = '4.13.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.13.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-4 — DHCP プールビルダー UI',
+    changes: [
+      '[機能追加] Cisco ビルダーフォームに DHCP プール(`ip dhcp pool`)の作成 UI を' +
+        '追加。プール名・ネットワークアドレス・サブネットマスク・default-router を' +
+        'GUI で設定できるようにした(`CiscoBuilderDraft.dhcpPools`)。',
+      'IP アドレス・サブネットマスクの形式検証を追加(H-1 の入力検証パターンに準拠)。',
+      'テスト 1 ケース追加(DHCP プールの network/default-router が正しく往復する' +
+        'こと)。テスト計 122 → 123 ケース。',
+    ],
+  },
   {
     version: '4.12.0',
     date: '2026-07-05',

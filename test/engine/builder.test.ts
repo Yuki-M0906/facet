@@ -54,6 +54,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
         { action: 'deny', rest: 'ip any any' },
       ],
     }],
+    dhcpPools: [{ name: 'STAFF-POOL', network: '192.168.10.0', mask: '255.255.255.0', gw: '192.168.10.1' }],
     security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
   };
 
@@ -103,6 +104,9 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
     expect(parsed.interfaces['GigabitEthernet1/0/1']!.aclIn).toBe('WEB-ACL');
     expect(parsed.interfaces['GigabitEthernet1/0/1']!.aclOut).toBeNull();
   });
+  it('DHCP プール(network/default-router)が読み戻せる(Sprint 5 SF5-4)', () => {
+    expect(parsed.dhcp['STAFF-POOL']).toEqual({ network: '192.168.10.0/24', gw: '192.168.10.1' });
+  });
 });
 
 describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', () => {
@@ -113,7 +117,7 @@ describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', (
       trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: true,
       aclIn: null, aclOut: null,
     }],
-    svis: [], acls: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
+    svis: [], acls: [], dhcpPools: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
   };
   const parsed = parseCisco(generateCiscoConfig(draft));
   it('shutdown フラグが読み戻せる', () => {
@@ -211,7 +215,7 @@ describe('生成 → verify までのフルパイプライン(Cisco + SonicWall)
         trunkNative: '1', trunkAllowed: ['10'], portfast: false, bpduguard: false, shutdown: false,
         aclIn: null, aclOut: null,
       }],
-      svis: [], acls: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
+      svis: [], acls: [], dhcpPools: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
     };
     const rDraft: SonicWallBuilderDraft = {
       hostname: 'GEN-EDGE',
