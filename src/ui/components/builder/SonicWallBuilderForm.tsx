@@ -85,7 +85,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
   }
 
   const totalVlanSubs = draft.interfaces.reduce((sum, i) => sum + (i.enabled ? i.vlanSubs.length : 0), 0);
-  const vlanSubOverLimit = capabilities?.maxVlanInterfaces && totalVlanSubs > capabilities.maxVlanInterfaces;
+  const vlanSubAtLimit = !!(capabilities?.maxVlanInterfaces && totalVlanSubs >= capabilities.maxVlanInterfaces);
 
   return (
     <div>
@@ -133,7 +133,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
                       onChange={(e) => updateIf(i, { mask: e.target.value })}
                     />
                     {errors[`iface.${i}.mask`] && <span className="builder-errmsg">{errors[`iface.${i}.mask`]}</span>}
-                    <button className="btn ghost sm" onClick={() => addVlanSub(i)}>+ VLAN サブIF</button>
+                    <button className="btn ghost sm" onClick={() => addVlanSub(i)} disabled={vlanSubAtLimit}>+ VLAN サブIF</button>
                   </>
                 )}
               </div>
@@ -166,9 +166,9 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
           ))}
         </div>
         {capabilities?.maxVlanInterfaces && (
-          <div className={vlanSubOverLimit ? 'builder-warn' : 'builder-summary-bar'}>
-            {vlanSubOverLimit
-              ? <>⚠ VLAN サブインターフェイス数 <b>{totalVlanSubs}</b> が {modelId} の上限(<b>{capabilities.maxVlanInterfaces}</b>)を超えています。</>
+          <div className={vlanSubAtLimit ? 'builder-warn' : 'builder-summary-bar'}>
+            {vlanSubAtLimit
+              ? <>⚠ VLAN サブインターフェイス数 <b>{totalVlanSubs}</b> が {modelId} の上限(<b>{capabilities.maxVlanInterfaces}</b>)に到達しているため、これ以上追加できません。</>
               : <>VLAN サブインターフェイス数 <b>{totalVlanSubs}</b> / 上限 {capabilities.maxVlanInterfaces}</>}
           </div>
         )}

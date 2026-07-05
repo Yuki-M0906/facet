@@ -19,9 +19,20 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.10.0';
+export const CURRENT_VERSION = '4.10.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.10.1',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-1 — 機種上限のリアルタイム制限',
+    changes: [
+      '[UX改善] Cisco/SonicWall のビルダーフォームで、VLAN数・SVI数・VLANサブ' +
+        'インターフェイス数が機種上限に到達すると「追加」ボタンを無効化する' +
+        'ようにした。従来(H-2)は上限超過を警告表示するのみで、生成後の' +
+        'CAP検証まで問題に気づけなかった。',
+    ],
+  },
   {
     version: '4.10.0',
     date: '2026-07-05',

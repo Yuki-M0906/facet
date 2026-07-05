@@ -69,8 +69,8 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     update({ svis: draft.svis.filter((_, idx) => idx !== i) });
   }
 
-  const vlanOverLimit = caps?.maxVlansSupported && draft.vlans.length > caps.maxVlansSupported;
-  const sviOverLimit = caps?.maxSviCount && draft.svis.length > caps.maxSviCount;
+  const vlanAtLimit = !!(caps?.maxVlansSupported && draft.vlans.length >= caps.maxVlansSupported);
+  const sviAtLimit = !!(caps?.maxSviCount && draft.svis.length >= caps.maxSviCount);
   const configuredPortCount = draft.ports.filter((p) => p.mode !== null || p.shutdown).length;
 
   return (
@@ -123,11 +123,11 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
             <span className="x" onClick={() => removeVlan(i)}>✕</span>
           </div>
         ))}
-        <button className="btn ghost sm builder-add" onClick={addVlan}>+ VLAN 追加</button>
+        <button className="btn ghost sm builder-add" onClick={addVlan} disabled={vlanAtLimit}>+ VLAN 追加</button>
         {caps?.maxVlansSupported && (
-          <div className={vlanOverLimit ? 'builder-warn' : 'builder-summary-bar'}>
-            {vlanOverLimit
-              ? <>⚠ VLAN 数 <b>{draft.vlans.length}</b> が {device.model.id} の上限(<b>{caps.maxVlansSupported}</b>)を超えています。生成は可能ですが検証で CAP エラーになります。</>
+          <div className={vlanAtLimit ? 'builder-warn' : 'builder-summary-bar'}>
+            {vlanAtLimit
+              ? <>⚠ VLAN 数 <b>{draft.vlans.length}</b> が {device.model.id} の上限(<b>{caps.maxVlansSupported}</b>)に到達しているため、これ以上追加できません。</>
               : <>VLAN 数 <b>{draft.vlans.length}</b> / 上限 {caps.maxVlansSupported}</>}
           </div>
         )}
@@ -221,12 +221,12 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
             <span className="x" onClick={() => removeSvi(i)}>✕</span>
           </div>
         ))}
-        <button className="btn ghost sm builder-add" onClick={addSvi} disabled={!draft.vlans.length}>+ SVI 追加</button>
+        <button className="btn ghost sm builder-add" onClick={addSvi} disabled={!draft.vlans.length || sviAtLimit}>+ SVI 追加</button>
         {!draft.vlans.length && <p className="note" style={{ marginTop: 8 }}>先に VLAN を追加してください。</p>}
         {caps?.maxSviCount && (
-          <div className={sviOverLimit ? 'builder-warn' : 'builder-summary-bar'}>
-            {sviOverLimit
-              ? <>⚠ SVI 数 <b>{draft.svis.length}</b> が {device.model.id} の上限(<b>{caps.maxSviCount}</b>)を超えています。</>
+          <div className={sviAtLimit ? 'builder-warn' : 'builder-summary-bar'}>
+            {sviAtLimit
+              ? <>⚠ SVI 数 <b>{draft.svis.length}</b> が {device.model.id} の上限(<b>{caps.maxSviCount}</b>)に到達しているため、これ以上追加できません。</>
               : <>SVI 数 <b>{draft.svis.length}</b> / 上限 {caps.maxSviCount}</>}
           </div>
         )}
