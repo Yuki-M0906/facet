@@ -19,6 +19,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
   const draft: CiscoBuilderDraft = {
     hostname: 'BUILD-SW-01',
     stpMode: 'rapid-pvst',
+    stpPriority: 4096,
     vlans: [
       { id: '10', name: 'STAFF' },
       { id: '20', name: 'POS' },
@@ -50,6 +51,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
 
   it('hostname が読み戻せる', () => expect(parsed.hostname).toBe('BUILD-SW-01'));
   it('stpMode が読み戻せる', () => expect(parsed.stpMode).toBe('rapid-pvst'));
+  it('stpPriority が読み戻せる(Sprint 5 SF5-2)', () => expect(parsed.stpPriority).toBe(4096));
   it('VLAN 名が読み戻せる', () => {
     expect(parsed.vlans['10']).toBe('STAFF');
     expect(parsed.vlans['20']).toBe('POS');
@@ -84,7 +86,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
 
 describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', () => {
   const draft: CiscoBuilderDraft = {
-    hostname: 'X', stpMode: null, vlans: [],
+    hostname: 'X', stpMode: null, stpPriority: null, vlans: [],
     ports: [{
       iface: 'GigabitEthernet1/0/5', mode: null, accessVlan: null,
       trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: true,
@@ -180,7 +182,7 @@ describe('生成 → verify までのフルパイプライン(Cisco + SonicWall)
     const sm = CATALOG.switch.filter((x) => x.id === 'C9300-24')[0]!;
 
     const swDraft: CiscoBuilderDraft = {
-      hostname: 'GEN-SW', stpMode: 'rapid-pvst',
+      hostname: 'GEN-SW', stpMode: 'rapid-pvst', stpPriority: null,
       vlans: [{ id: '10', name: 'STAFF' }],
       ports: [{
         iface: 'GigabitEthernet1/1/1', mode: 'trunk', accessVlan: null,

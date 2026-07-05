@@ -23,6 +23,11 @@ const STP_OPTIONS: { value: StpVariant; label: string }[] = [
   { value: 'mst', label: 'mst' },
 ];
 
+/* Cisco の spanning-tree priority は 4096 刻みの16値のみが実機で有効
+ * (0, 4096, 8192, ..., 61440)。select で不正値そのものを作れなくする
+ * (Sprint 4 S4-4 の root election 推定と対応させるため Sprint 5 で追加)。 */
+const STP_PRIORITY_OPTIONS: number[] = Array.from({ length: 16 }, (_, i) => i * 4096);
+
 export function CiscoBuilderForm({ device, draft, onChange }: Props) {
   const caps = (device.model as { capabilities?: SwitchCapabilities }).capabilities;
   const stpOptions = caps?.stpVariants ? STP_OPTIONS.filter((o) => caps.stpVariants!.includes(o.value)) : STP_OPTIONS;
@@ -88,6 +93,14 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
           <select value={draft.stpMode ?? ''} onChange={(e) => update({ stpMode: (e.target.value || null) as StpVariant | null })}>
             <option value="">未設定</option>
             {stpOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <span className="lbl">Priority</span>
+          <select
+            value={draft.stpPriority ?? ''}
+            onChange={(e) => update({ stpPriority: e.target.value === '' ? null : Number(e.target.value) })}
+          >
+            <option value="">既定(32768)</option>
+            {STP_PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <label className="inline">
             <input type="checkbox" checked={draft.security.sshOnly} onChange={(e) => update({ security: { ...draft.security, sshOnly: e.target.checked } })} />

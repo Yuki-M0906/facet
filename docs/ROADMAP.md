@@ -117,7 +117,9 @@
 - [x] **SF5-1**(2026-07-05)機材 capability を超える設定は GUI 上でリアルタイム
       制限(VLAN数/SVI数/VLANサブIF数が上限到達で追加ボタンを disabled 化。
       従来の H-2 は警告表示のみだった)
-- [ ] **SF5-2** spanning-tree priority 入力欄をフォームに追加(S4-4 の成果を反映)
+- [x] **SF5-2**(2026-07-05)spanning-tree priority 入力欄をフォームに追加
+      (S4-4 の root election 推定と対応。4096刻み16段階の select で不正値を
+      作れない設計)
 - [ ] **SF5-3** ACL ビルダー UI(Cisco)
 - [ ] **SF5-4** DHCP プールビルダー UI(Cisco)
 - [ ] **SF5-5** address-object の range 型対応(SonicWall)

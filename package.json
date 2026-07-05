@@ -1,6 +1,6 @@
 {
   "name": "facet-network-verifier",
-  "version": "4.10.1",
+  "version": "4.11.0",
   "private": true,
   "description": "FACET — static network configuration verification tool (SonicWall router + Cisco switches). Single-file browser app + DOM-free verification engine.",
   "type": "module",

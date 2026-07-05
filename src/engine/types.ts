@@ -463,6 +463,9 @@ export interface CiscoBuilderSecurity {
 export interface CiscoBuilderDraft {
   hostname: string;
   stpMode: StpVariant | null;
+  /** `spanning-tree priority`。null = 未設定(IEEE/Cisco 既定値 32768 が適用される。
+   * Sprint 4 S4-4 の root election 推定と対応)。 */
+  stpPriority: number | null;
   vlans: CiscoBuilderVlan[];
   ports: CiscoBuilderPort[];
   svis: CiscoBuilderSvi[];
