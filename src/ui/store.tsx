@@ -135,8 +135,10 @@ export function initCiscoDraft(d: Device): CiscoBuilderDraft {
     ports: d.ports.map((p) => ({
       iface: p.iface, mode: null, accessVlan: null,
       trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
+      aclIn: null, aclOut: null,
     })),
     svis: [],
+    acls: [],
     security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
   };
 }

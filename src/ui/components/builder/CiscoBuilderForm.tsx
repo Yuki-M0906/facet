@@ -63,6 +63,39 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     updatePort(i, { trunkAllowed });
   }
 
+  function addAcl() {
+    update({ acls: [...draft.acls, { name: '', lines: [] }] });
+  }
+  function updateAcl(i: number, patch: Partial<CiscoBuilderDraft['acls'][number]>) {
+    update({ acls: draft.acls.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
+  }
+  function removeAcl(i: number) {
+    const removedName = draft.acls[i]?.name;
+    update({
+      acls: draft.acls.filter((_, idx) => idx !== i),
+      /* 削除された ACL を参照しているポートの適用も一緒に外す(存在しない ACL 名が
+       * 生成テキストに残るのを防ぐ) */
+      ports: draft.ports.map((p) => ({
+        ...p,
+        aclIn: p.aclIn === removedName ? null : p.aclIn,
+        aclOut: p.aclOut === removedName ? null : p.aclOut,
+      })),
+    });
+  }
+  function addAclLine(i: number) {
+    const acl = draft.acls[i]!;
+    updateAcl(i, { lines: [...acl.lines, { action: 'permit', rest: '' }] });
+  }
+  function updateAclLine(i: number, j: number, patch: Partial<CiscoBuilderDraft['acls'][number]['lines'][number]>) {
+    const acl = draft.acls[i]!;
+    const lines = acl.lines.map((l, idx) => (idx === j ? { ...l, ...patch } : l));
+    updateAcl(i, { lines });
+  }
+  function removeAclLine(i: number, j: number) {
+    const acl = draft.acls[i]!;
+    updateAcl(i, { lines: acl.lines.filter((_, idx) => idx !== j) });
+  }
+
   function addSvi() {
     update({ svis: [...draft.svis, { vlan: draft.vlans[0]?.id ?? '', ip: '', mask: '255.255.255.0' }] });
   }
@@ -147,6 +180,39 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
       </div>
 
       <div className="builder-section">
+        <div className="builder-section-title">ACL 一覧(任意、ポートに適用すると ip access-group で有効化)</div>
+        {draft.acls.map((a, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <div className="builder-row">
+              <span className="lbl">名前</span>
+              <input
+                type="text" value={a.name} placeholder="WEB-ACL" className={errCls(`acl.${i}.name`)}
+                onChange={(e) => updateAcl(i, { name: e.target.value })}
+              />
+              {errors[`acl.${i}.name`] && <span className="builder-errmsg">{errors[`acl.${i}.name`]}</span>}
+              <span className="x" onClick={() => removeAcl(i)}>✕</span>
+            </div>
+            {a.lines.map((l, j) => (
+              <div className="builder-row" key={j} style={{ marginLeft: 24 }}>
+                <select value={l.action} onChange={(e) => updateAclLine(i, j, { action: e.target.value })}>
+                  <option value="permit">permit</option>
+                  <option value="deny">deny</option>
+                </select>
+                <input
+                  type="text" value={l.rest} placeholder="tcp any any eq 80" className={errCls(`acl.${i}.line.${j}.rest`)}
+                  onChange={(e) => updateAclLine(i, j, { rest: e.target.value })}
+                />
+                {errors[`acl.${i}.line.${j}.rest`] && <span className="builder-errmsg">{errors[`acl.${i}.line.${j}.rest`]}</span>}
+                <span className="x" onClick={() => removeAclLine(i, j)}>✕</span>
+              </div>
+            ))}
+            <button className="btn ghost sm builder-add" style={{ marginLeft: 24 }} onClick={() => addAclLine(i)}>+ ルール行追加</button>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addAcl}>+ ACL 追加</button>
+      </div>
+
+      <div className="builder-section">
         <div className="builder-section-title">
           ポート設定({draft.ports.length} ポート・{configuredPortCount}/{draft.ports.length} 設定済み)
         </div>
@@ -201,6 +267,20 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
                     </>
                   )}
                 </div>
+                {draft.acls.length > 0 && (
+                  <>
+                    <span className="lbl">ACL in</span>
+                    <select value={p.aclIn ?? ''} onChange={(e) => updatePort(i, { aclIn: e.target.value || null })}>
+                      <option value="">未適用</option>
+                      {draft.acls.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+                    </select>
+                    <span className="lbl">ACL out</span>
+                    <select value={p.aclOut ?? ''} onChange={(e) => updatePort(i, { aclOut: e.target.value || null })}>
+                      <option value="">未適用</option>
+                      {draft.acls.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+                    </select>
+                  </>
+                )}
                 <label className="inline">
                   <input type="checkbox" checked={p.shutdown} onChange={(e) => updatePort(i, { shutdown: e.target.checked })} />
                   shutdown

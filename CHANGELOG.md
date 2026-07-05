@@ -4,6 +4,33 @@
 
 ---
 
+## v4.12.0 — 2026-07-05
+
+### Sprint 5 フォローアップ SF5-3 — ACL ビルダー UI
+
+- Cisco ビルダーフォームに ACL(アクセスリスト)作成 UI を新設。従来「意図的に
+  省いているもの」として generator のコメントに明記していたスコープ外機能を
+  実装した。
+- `CiscoBuilderDraft.acls: CiscoBuilderAcl[]` を新設(`{ name, lines: AclLine[] }`。
+  `AclLine` は既存の `CiscoParsed.acls` と同じ `{action, rest}` 形を再利用)。
+  `CiscoBuilderPort` に `aclIn`/`aclOut` を追加し、ポートへの `ip access-group
+  <name> in/out` 適用を GUI から設定できるようにした。
+- 生成される構文は `ip access-list extended <name>` ブロック + `permit`/`deny
+  <rest>` 行。`src/engine/parsers/cisco.ts` の既存正規表現に厳密準拠し、
+  往復保証テストで検証済み。
+- UX: ACL 名の重複チェック、各ルール行の内容(`rest`)の未入力チェックを追加
+  (H-1 の入力検証パターンに準拠)。ACL を削除すると、それを参照していた
+  ポートの `aclIn`/`aclOut` も自動的に null へ戻す(存在しない ACL 名への
+  参照が生成テキストに残らないようにするための安全策)。
+- テスト 2 ケース追加(ACL 本体の permit/deny が `parseCisco` で正しく読み戻せる
+  こと、`ip access-group` によるポート適用が読み戻せること)。テスト計 120 →
+  122 ケース、全 PASS(既存ケースへの回帰なし)。ブラウザでの実地確認: ACL を
+  作成 → ルール行を追加 → 未入力行に検証エラーが表示されることを確認 →
+  ポートの「ACL in / ACL out」セレクトに作成した ACL 名が選択肢として現れる
+  ことを確認(コンソールエラー 0 件)。
+
+---
+
 ## v4.11.0 — 2026-07-05
 
 ### Sprint 5 フォローアップ SF5-2 — STP priority 入力欄
