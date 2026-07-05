@@ -28,21 +28,32 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
       {
         iface: 'GigabitEthernet1/0/1', mode: 'access', accessVlan: '10',
         trunkNative: null, trunkAllowed: [], portfast: true, bpduguard: true, shutdown: false,
+        aclIn: 'WEB-ACL', aclOut: null,
       },
       {
         iface: 'GigabitEthernet1/0/2', mode: 'access', accessVlan: '20',
         trunkNative: null, trunkAllowed: [], portfast: true, bpduguard: true, shutdown: false,
+        aclIn: null, aclOut: null,
       },
       {
         iface: 'GigabitEthernet1/0/3', mode: null, accessVlan: null,
         trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
+        aclIn: null, aclOut: null,
       },
       {
         iface: 'GigabitEthernet1/1/1', mode: 'trunk', accessVlan: null,
         trunkNative: '1', trunkAllowed: ['10', '20'], portfast: false, bpduguard: false, shutdown: false,
+        aclIn: null, aclOut: null,
       },
     ],
     svis: [{ vlan: '10', ip: '192.168.10.1', mask: '255.255.255.0' }],
+    acls: [{
+      name: 'WEB-ACL',
+      lines: [
+        { action: 'permit', rest: 'tcp any any eq 80' },
+        { action: 'deny', rest: 'ip any any' },
+      ],
+    }],
     security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
   };
 
@@ -82,6 +93,16 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
     expect(parsed.sec.enableSecret).toBe(true);
     expect(parsed.sec.pwEncrypt).toBe(true);
   });
+  it('ACL 本体(permit/deny の rest)が読み戻せる(Sprint 5 SF5-3)', () => {
+    expect(parsed.acls['WEB-ACL']).toEqual([
+      { action: 'permit', rest: 'tcp any any eq 80' },
+      { action: 'deny', rest: 'ip any any' },
+    ]);
+  });
+  it('ip access-group による ACL 適用が読み戻せる(Sprint 5 SF5-3)', () => {
+    expect(parsed.interfaces['GigabitEthernet1/0/1']!.aclIn).toBe('WEB-ACL');
+    expect(parsed.interfaces['GigabitEthernet1/0/1']!.aclOut).toBeNull();
+  });
 });
 
 describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', () => {
@@ -90,8 +111,9 @@ describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', (
     ports: [{
       iface: 'GigabitEthernet1/0/5', mode: null, accessVlan: null,
       trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: true,
+      aclIn: null, aclOut: null,
     }],
-    svis: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
+    svis: [], acls: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
   };
   const parsed = parseCisco(generateCiscoConfig(draft));
   it('shutdown フラグが読み戻せる', () => {
@@ -187,8 +209,9 @@ describe('生成 → verify までのフルパイプライン(Cisco + SonicWall)
       ports: [{
         iface: 'GigabitEthernet1/1/1', mode: 'trunk', accessVlan: null,
         trunkNative: '1', trunkAllowed: ['10'], portfast: false, bpduguard: false, shutdown: false,
+        aclIn: null, aclOut: null,
       }],
-      svis: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
+      svis: [], acls: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
     };
     const rDraft: SonicWallBuilderDraft = {
       hostname: 'GEN-EDGE',

@@ -19,9 +19,25 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.11.0';
+export const CURRENT_VERSION = '4.12.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.12.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-3 — ACL ビルダー UI',
+    changes: [
+      '[機能追加] Cisco ビルダーフォームに ACL(アクセスリスト)の作成 UI を追加。' +
+        '名前付き ACL(`ip access-list extended`)と permit/deny 行を GUI で組み立て、' +
+        'ポートの ACL in/out(`ip access-group`)として適用できるようにした' +
+        '(`CiscoBuilderDraft.acls`、`CiscoBuilderPort.aclIn`/`aclOut`)。',
+      'ACL 名の重複チェック、各ルール行の内容(rest)の未入力チェックを追加。' +
+        'ACL を削除すると、それを参照していたポートの適用も自動的に解除する' +
+        '(存在しない ACL 名が生成テキストに残らないようにするため)。',
+      'テスト 2 ケース追加(ACL 本体の往復保証、ip access-group によるポート適用の' +
+        '往復保証)。テスト計 120 → 122 ケース。',
+    ],
+  },
   {
     version: '4.11.0',
     date: '2026-07-05',

@@ -446,6 +446,9 @@ export interface CiscoBuilderPort {
   portfast: boolean;
   bpduguard: boolean;
   shutdown: boolean;
+  /** `ip access-group <name> in/out`。null = 未適用(Sprint 5 SF5-3、draft.acls の name を参照) */
+  aclIn: string | null;
+  aclOut: string | null;
 }
 
 export interface CiscoBuilderSvi {
@@ -460,6 +463,12 @@ export interface CiscoBuilderSecurity {
   pwEncrypt: boolean;     // true → service password-encryption
 }
 
+/** 名前付き ACL(Sprint 5 SF5-3)。行の形は CiscoParsed.acls と同じ {action, rest} を再利用 */
+export interface CiscoBuilderAcl {
+  name: string;
+  lines: AclLine[];
+}
+
 export interface CiscoBuilderDraft {
   hostname: string;
   stpMode: StpVariant | null;
@@ -469,6 +478,7 @@ export interface CiscoBuilderDraft {
   vlans: CiscoBuilderVlan[];
   ports: CiscoBuilderPort[];
   svis: CiscoBuilderSvi[];
+  acls: CiscoBuilderAcl[];
   security: CiscoBuilderSecurity;
 }
 

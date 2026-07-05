@@ -89,6 +89,23 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     if (!isValidMask(s.mask)) errors[`svi.${i}.mask`] = 'サブネットマスクの形式が不正です';
   });
 
+  const seenAclNames = new Map<string, number>();
+  draft.acls.forEach((a, i) => {
+    if (!isNonEmpty(a.name)) {
+      errors[`acl.${i}.name`] = 'ACL 名を入力してください';
+    } else {
+      const prev = seenAclNames.get(a.name);
+      if (prev !== undefined) {
+        errors[`acl.${i}.name`] = 'ACL 名が重複しています';
+        errors[`acl.${prev}.name`] = 'ACL 名が重複しています';
+      }
+      seenAclNames.set(a.name, i);
+    }
+    a.lines.forEach((l, j) => {
+      if (!isNonEmpty(l.rest)) errors[`acl.${i}.line.${j}.rest`] = '内容を入力してください(例: tcp any any eq 80)';
+    });
+  });
+
   return errors;
 }
 

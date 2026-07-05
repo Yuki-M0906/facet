@@ -6,9 +6,10 @@
  * 厳密準拠する。test/engine/builder.test.ts でこの保証を機械的に検証する。
  *
  * 意図的に省いているもの(Sprint 5 MVP スコープ外):
- * - description 行、ACL 本体、DHCP プール、standby(HSRP)、secondary IP、
+ * - description 行、DHCP プール、standby(HSRP)、secondary IP、
  *   speed/duplex/mtu の個別指定 — GUI フォームにフィールドを追加すれば
  *   この生成関数にも数行足すだけで対応可能(ParsedInterface 側は既に対応済)。
+ *   ACL 本体・ip access-group の適用は Sprint 5 SF5-3 で対応済み。
  */
 
 import type { CiscoBuilderDraft, CiscoBuilderPort } from '../types';
@@ -23,6 +24,8 @@ function portLines(p: CiscoBuilderPort): string[] {
     if (p.trunkNative) lines.push(' switchport trunk native vlan ' + p.trunkNative);
     if (p.trunkAllowed.length) lines.push(' switchport trunk allowed vlan ' + p.trunkAllowed.join(','));
   }
+  if (p.aclIn) lines.push(' ip access-group ' + p.aclIn + ' in');
+  if (p.aclOut) lines.push(' ip access-group ' + p.aclOut + ' out');
   if (p.portfast) lines.push(' spanning-tree portfast');
   if (p.bpduguard) lines.push(' spanning-tree bpduguard enable');
   if (p.shutdown) lines.push(' shutdown');
@@ -45,9 +48,15 @@ export function generateCiscoConfig(draft: CiscoBuilderDraft): string {
   });
   if (draft.vlans.length) out.push('!');
 
+  draft.acls.forEach((a) => {
+    out.push('ip access-list extended ' + a.name);
+    a.lines.forEach((l) => out.push(' ' + l.action + ' ' + l.rest));
+    out.push('!');
+  });
+
   /* configured なポートのみ interface ブロックを出力(未設定ポートは行を出さない) */
   draft.ports
-    .filter((p) => p.mode !== null || p.shutdown)
+    .filter((p) => p.mode !== null || p.shutdown || p.aclIn || p.aclOut)
     .forEach((p) => {
       out.push('interface ' + p.iface);
       out.push(...portLines(p));
