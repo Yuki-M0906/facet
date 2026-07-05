@@ -581,7 +581,7 @@ export function verify(state: AppState): VerifyResult {
   /* スイッチ側の CAP チェック */
   devs.forEach((d) => {
     if (d.role !== 'switch' || !d.parsed) return;
-    const cp = d.parsed as { vlans?: Record<string, string>; svis?: Record<string, unknown>; stpMode?: string | null; acls?: Record<string, unknown[]>; interfaces?: Record<string, ParsedInterface>; platformHint?: import('./types').PlatformHint };
+    const cp = d.parsed as { vlans?: Record<string, string>; svis?: Record<string, unknown>; stpMode?: string | null; acls?: Record<string, unknown[]>; interfaces?: Record<string, ParsedInterface>; platformHint?: import('./types').PlatformHint; routes?: Array<{ dst: string; mask: string; nh: string }> };
     const cap = (d.model as { capabilities?: import('./types').SwitchCapabilities }).capabilities;
     if (!cap) return;
 
@@ -603,6 +603,24 @@ export function verify(state: AppState): VerifyResult {
           'SVI 数 ' + n + ' が SKU 上限 ' + cap.maxSviCount + ' を超過。',
           d.model.id + ' は最大 ' + cap.maxSviCount + ' SVI まで対応。',
           'SVI を別スイッチに分散 / 上位機種へ置換。');
+      }
+    }
+    /* ルーティングテーブル(FIB)静的エントリ数 概算(Sprint 4 S4-6) ----
+     * 直結ルート(SVI 数)+ 静的ルート(ip route)の合計を下限見積りとして比較する。
+     * OSPF/EIGRP/BGP 等の動的プロトコルで学習される経路は FACET では計算していない
+     * ため、実際のエントリ数はこれ以上になり得る(過小評価はあっても過大評価は
+     * しない設計。誤検知を避けるため超過が確実な場合のみ発火)。 */
+    if (cap.maxRoutingEntries) {
+      const directlyConnected = cp.svis ? Object.keys(cp.svis).length : 0;
+      const staticRoutes = (cp.routes || []).length;
+      const total = directlyConnected + staticRoutes;
+      if (total > cap.maxRoutingEntries) {
+        add('CAP', 'err', d.key,
+          'ルーティングテーブルの静的エントリ数(直結 ' + directlyConnected + ' + 静的ルート ' +
+            staticRoutes + ' = ' + total + ')が SKU 上限 ' + cap.maxRoutingEntries + ' を超過。',
+          d.model.id + ' は最大 ' + cap.maxRoutingEntries + ' エントリまで対応。動的ルーティング' +
+            'プロトコルで学習する経路を含めるとさらに超過幅が広がる可能性がある。',
+          'SVI・静的ルートの整理 / 経路集約 / 上位機種への置換。');
       }
     }
     /* ACL エントリ概算 */

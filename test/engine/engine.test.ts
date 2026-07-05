@@ -761,6 +761,32 @@ describe('CAP — Cat 1000 の VLAN 数上限', () => {
   });
 });
 
+describe('CAP — Cat 1000 のルーティングテーブル(FIB)静的エントリ数上限(Sprint 4 S4-6)', () => {
+  /* C1000 は maxRoutingEntries=64。静的ルートを 70 本定義して上限超過を検出させる */
+  const sm1000b = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+  const rmTzb = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+
+  function buildRoutingState(routeCount: number) {
+    let cfg = 'hostname ROUTE-TEST\nspanning-tree mode rapid-pvst\n';
+    for (let i = 1; i <= routeCount; i++) cfg += 'ip route 10.' + i + '.0.0 255.255.255.0 192.168.1.1\n';
+    const rTz = makeDev('R1', 'router', rmTzb, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw = makeDev('SW1', 'switch', sm1000b, parseCisco(cfg));
+    [rTz, sw].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: rTz, switches: [sw], devices: [rTz, sw], topoMode: 'star', links: [] };
+    st.links = autoLinks(st);
+    return verify(st);
+  }
+
+  it('静的ルート数が上限を超過すると CAP err が発火', () => {
+    const V2 = buildRoutingState(70);
+    expect(V2.findings.some((f) => f.cat === 'CAP' && f.level === 'err' && f.desc.includes('ルーティングテーブル'))).toBe(true);
+  });
+  it('上限未満なら発火しない', () => {
+    const V2 = buildRoutingState(5);
+    expect(V2.findings.some((f) => f.cat === 'CAP' && f.desc.includes('ルーティングテーブル'))).toBe(false);
+  });
+});
+
 describe('CAP — Cat 1000 で PAgP 利用', () => {
   /* C1000 は supportsPagp=false。channel-group mode desirable は PAgP なので CAP err */
   const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;

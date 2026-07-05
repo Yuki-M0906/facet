@@ -19,9 +19,25 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.9.0';
+export const CURRENT_VERSION = '4.10.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.10.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-6 — ルーティングテーブル上限チェック(Sprint 4 完了)',
+    changes: [
+      '[検証精度] 直結ルート(SVI数)+ 静的ルート(ip route)の合計が SKU の' +
+        '`maxRoutingEntries` を超過していないかを CAP カテゴリで検出するように' +
+        'した。動的ルーティングプロトコルの学習経路は計算していないため下限' +
+        '見積りとして扱う(過大評価を避け、確実に超過している場合のみ発火)。',
+      '[誠実性] `maxMacAddresses`(MACアドレステーブル容量)は「実際に何台の' +
+        '端末が接続されるか」が静的コンフィグから原理的に導出できないため、' +
+        '調査の上で意図的に未実装とした(docs/VERIFICATION-RULES.md に記録)。',
+      'Sprint 4(評価エンジンのリアリズム強化)が S4-1〜S4-6 の全項目で完了。' +
+        'テスト 2 ケース追加。テスト計 117 → 119 ケース。',
+    ],
+  },
   {
     version: '4.9.0',
     date: '2026-07-05',
