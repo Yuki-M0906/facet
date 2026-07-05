@@ -254,6 +254,25 @@ describe('svcMatch (bidirectional overlap) — Sprint 1 で修正', () => {
   });
 });
 
+describe('objContains — 組み込みアドレスグループ "<Zone> Subnets"(Sprint 4 S4-3)', () => {
+  const BUILTIN_CFG =
+    'system name BUILTIN-TEST\n' +
+    'interface X0\n zone LAN\n ip 192.168.1.1 netmask 255.255.255.0\n' +
+    'interface X0:V10\n vlan 10\n zone LAN\n ip 192.168.10.1 netmask 255.255.255.0\n' +
+    'interface X2\n zone POS\n ip 192.168.20.1 netmask 255.255.255.0\n' +
+    'interface X1\n zone WAN\n ip 203.0.113.2 netmask 255.255.255.248\n' +
+    'access-rule from LAN to WAN\n action allow\n source LAN Subnets\n destination any\n service any\n';
+  const pBuiltin = parseSonicWall(BUILTIN_CFG);
+
+  it('"LAN Subnets" は LAN ゾーンの複数サブネットいずれのIPも含む', () => {
+    expect(evalFW(pBuiltin, 'LAN', 'WAN', '192.168.1.50', '203.0.113.5', 'any').action).toBe('allow');
+    expect(evalFW(pBuiltin, 'LAN', 'WAN', '192.168.10.50', '203.0.113.5', 'any').action).toBe('allow');
+  });
+  it('"LAN Subnets" は他ゾーン(POS)のIPを含まない', () => {
+    expect(evalFW(pBuiltin, 'LAN', 'WAN', '192.168.20.50', '203.0.113.5', 'any').action).toBe('deny');
+  });
+});
+
 /* ===== full verify ===== */
 
 const rm = CATALOG.router.filter((x) => x.id === 'TZ570')[0]!;

@@ -83,12 +83,16 @@
       従来は canonIf() がどの物理ポートにも一致させられず、実務でよくある
       「L2 設定は Port-channel 側にのみ書く」パターンの設定がサイレントに
       読み捨てられていた(`mapToPorts.ts`)
-- [ ] **S4-2** SonicWall: NAT/route/policy 評価の実質化。現状 `pathTrace` は
-      「NAT ポリシーが1つでもあれば NAT ありと表示するだけ」で実際のマッチングを
-      していない。パース済みの静的ルート(`routes`)も一切参照されていない
-- [ ] **S4-3** SonicWall: 組み込みオブジェクト(LAN Subnets、WAN Subnets 等)、
-      address-group / service-group の展開(現状 `objContains`/`resolveSvc` は
-      host/network/range の個別オブジェクトと "any" のみ対応)
+- [x] **S4-2**(2026-07-05)SonicWall: NAT/route 評価の実質化。`pathTrace` の
+      NAT ホップを、実際に該当する nat-policy をマッチさせて表示する方式に変更。
+      これまで一切参照されていなかった静的ルート(`ip route`/`route-policy`)の
+      next-hop 到達可否を verify() の L3 カテゴリで検出するようにした
+- [x] **S4-3**(2026-07-05)SonicWall: 組み込みアドレスグループ `"<Zone> Subnets"`
+      (例: "LAN Subnets")をゾーン内サブネットの和集合として動的解決するよう
+      `objContains` を拡張。カスタム address-group / service-group のメンバー
+      展開は、SonicOS 6.5 E-CLI Reference Guide を精読してもメンバー追加コマンドの
+      構文を確認できなかったため意図的に見送り(確証の無い構文は実装しない方針。
+      詳細は `docs/PARSER-NOTES.md`)
 - [ ] **S4-4** STP ルート選出(ルートブリッジ優先度に基づく簡易モデル。現状は
       union-find によるループ有無の検出のみで root election の概念が無い)
 - [ ] **S4-5** LACP 両端の実効フォーミング判定(モード非互換の警告に加え、
