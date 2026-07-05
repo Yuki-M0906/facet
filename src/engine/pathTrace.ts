@@ -16,12 +16,12 @@ import type { AppState, NatPolicy, PathHop, PathTraceResult, SonicWallParsed } f
  * 上から順に最初の一致を採用する方式に準拠)。 */
 function findMatchingNat(
   natList: NatPolicy[],
-  addr: SonicWallParsed['addr'],
+  rp: SonicWallParsed,
   srcIp: string,
   outboundIface: string | null,
 ): NatPolicy | null {
   for (const n of natList) {
-    if (n.orig && !objContains(addr, n.orig, srcIp)) continue;
+    if (n.orig && !objContains(rp, n.orig, srcIp)) continue;
     if (n.iface && outboundIface && n.iface.toUpperCase() !== outboundIface.toUpperCase()) continue;
     return n;
   }
@@ -146,7 +146,7 @@ export function pathTrace(
   if (wan) {
     const rp = r.parsed as SonicWallParsed | null;
     const natList = rp?.nat || [];
-    const matched = natList.length ? findMatchingNat(natList, rp!.addr, src.gw, wsub!.iface) : null;
+    const matched = natList.length ? findMatchingNat(natList, rp!, src.gw, wsub!.iface) : null;
     hops.push({
       node: 'NAT',
       detail: matched

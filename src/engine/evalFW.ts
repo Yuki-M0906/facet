@@ -4,10 +4,11 @@
  * ロジックは無変更(Sprint 1 で svcMatch を双方向 overlap 判定に修正した状態を維持)。
  */
 
-import { inSubnet, ipToInt } from './ip';
+import { inSubnet, ipToInt, subnetOf } from './ip';
 import type {
   AddressObject,
   EvalFWResult,
+  ParsedInterface,
   ResolvedSvc,
   ServiceObject,
   SonicWallParsed,
@@ -74,15 +75,30 @@ export function svcMatch(
  * address-object 解決:`name` で参照されるオブジェクトが `ip` を含むか。
  * - "any" → 常に true
  * - host / network / range / 生 CIDR / 生 IP 文字列に対応
+ * - "<Zone> Subnets"(例: "LAN Subnets")は SonicOS の組み込みアドレスグループ
+ *   (Sprint 4 S4-3)。ゾーンに割り当てられた全インターフェイスのサブネットの
+ *   和集合として動的に解決する(ユーザーが明示的に同名オブジェクトを定義している
+ *   場合はそちらを優先)。カスタム address-group / service-group のメンバー展開は
+ *   実装していない — SonicOS 6.5 E-CLI Reference Guide を精読したが、グループへの
+ *   メンバー追加コマンドの構文を確認できなかったため(docs/PARSER-NOTES.md 参照)。
  * - 未知名は false(caller 側で no match として扱う、保守的)
  */
 export function objContains(
-  addr: Record<string, AddressObject>,
+  rparsed: { addr: Record<string, AddressObject>; interfaces?: Record<string, ParsedInterface> },
   name: string | null | undefined,
   ip: string,
 ): boolean {
   if (!name || /^any$/i.test(name)) return true;
-  const o = addr[name];
+  const zoneMatch = name.match(/^(.+?)\s+Subnets$/i);
+  if (zoneMatch && rparsed.interfaces && !rparsed.addr[name]) {
+    const zone = zoneMatch[1]!.toUpperCase();
+    return Object.values(rparsed.interfaces).some((i) => {
+      if (!i.ip || !i.mask) return false;
+      if ((i.zone || '').toUpperCase() !== zone) return false;
+      return inSubnet(ip, subnetOf(i.ip, i.mask));
+    });
+  }
+  const o = rparsed.addr[name];
   if (!o) {
     if (/^[\d.]+\/\d+$/.test(name)) return inSubnet(ip, name);
     if (/^[\d.]+$/.test(name)) return ip === name;
@@ -111,8 +127,8 @@ export function evalFW(
     if (rl.enabled === false) continue;
     if (rl.from.toUpperCase() !== srcZone.toUpperCase() && rl.from.toUpperCase() !== 'ANY') continue;
     if (rl.to.toUpperCase() !== dstZone.toUpperCase() && rl.to.toUpperCase() !== 'ANY') continue;
-    if (srcIp && !objContains(rparsed.addr, rl.src, srcIp)) continue;
-    if (dstIp && !objContains(rparsed.addr, rl.dst, dstIp)) continue;
+    if (srcIp && !objContains(rparsed, rl.src, srcIp)) continue;
+    if (dstIp && !objContains(rparsed, rl.dst, dstIp)) continue;
     if (!svcMatch(rparsed.svc, rl.service, service)) continue;
     return { action: rl.action, rule: rl, reason: 'rule', index: i };
   }

@@ -4,6 +4,39 @@
 
 ---
 
+## v4.7.0 — 2026-07-05
+
+### Sprint 4 S4-3 — SonicWall 組み込みアドレスグループ
+
+- **`objContains`**(`evalFW.ts`、FW ルール評価の中核ヘルパ)を拡張し、SonicOS の
+  組み込みアドレスグループ `"<Zone> Subnets"`(例: `"LAN Subnets"`、`"WAN
+  Subnets"`)を解決できるようにした。ゾーンに割り当てられた全インターフェイスの
+  サブネットの和集合として動的に判定する。ユーザーが明示的に同名のカスタム
+  アドレスオブジェクトを定義している場合はそちらを優先する。
+- この組み込みグループが SonicOS に実在することは、SonicWall 公式の SonicOS 6.5
+  Enterprise Command Line Interface Reference Guide を直接読み、複数箇所
+  (`show address-group ipv4 "LAN Subnets"`、`vpn-client-access name "LAN
+  Subnets"` 等)で確認した上で実装している。
+- **カスタム address-group / service-group のメンバー展開は意図的に見送った**。
+  同リファレンスガイドは `address-group ipv4 "<name>"` によるグループ自体の
+  作成・削除コマンドは文書化しているが、個々の address-object をグループの
+  メンバーとして追加する CLI コマンドの構文を見つけることができなかった。
+  推測で構文をでっち上げて実装するのは FACET の「確証の無い判定を主張しない」
+  という方針に反するため、この部分は未実装のまま `docs/PARSER-NOTES.md` に
+  調査結果を記録し、P3-4(実機フィクスチャ)で実データが手に入った際に再調査する
+  こととした。
+- `objContains` の第一引数の型を `Record<string, AddressObject>` から
+  `{ addr: ...; interfaces?: ... }` に拡張(呼び出し元は `evalFW.ts` と
+  `pathTrace.ts` の 2 箇所のみで、いずれも本コミットで追随済み)。
+- テスト 2 ケース追加(複数の LAN ゾーンサブネット — 直接 IF と VLAN サブ IF
+  の両方 — がいずれも "LAN Subnets" に含まれること、他ゾーンの IP は含まれない
+  こと)。テスト計 106 → 108 ケース、全 PASS(既存ケースへの回帰なし)。ブラウザ
+  での実地確認: "LAN Subnets" を参照する access-rule を含む SonicWall コンフィグを
+  投入し、到達性マトリクスで LAN ゾーンの複数サブネットがいずれも正しく許可
+  (○)されることを確認(コンソールエラー 0 件)。
+
+---
+
 ## v4.6.0 — 2026-07-05
 
 ### Sprint 4 S4-2 — SonicWall NAT/静的ルート評価の実質化

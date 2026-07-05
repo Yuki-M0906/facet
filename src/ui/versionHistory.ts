@@ -19,9 +19,28 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.6.0';
+export const CURRENT_VERSION = '4.7.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.7.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-3 — SonicWall 組み込みアドレスグループ',
+    changes: [
+      '[検証精度] objContains(FW評価の中核ヘルパ)を拡張し、SonicOS の組み込み' +
+        'アドレスグループ "<Zone> Subnets"(例: "LAN Subnets")を、そのゾーンに' +
+        '割り当てられた全インターフェイスのサブネットの和集合として動的に解決' +
+        'するようにした。SonicOS 6.5 E-CLI Reference Guide の複数箇所' +
+        '(show address-group ipv4 "LAN Subnets" 等)で実在を確認済み。',
+      '[誠実性] カスタム address-group / service-group のメンバー展開は実装を' +
+        '見送り。同リファレンスガイドを精読したが、グループへメンバーを追加する' +
+        'CLI コマンドの構文を確認できなかったため、確証の無い構文を実装しない' +
+        '方針を優先(SonicOS 6/7 判別を見送った判断と同じ理由。詳細は' +
+        'docs/PARSER-NOTES.md)。',
+      'テスト 2 ケース追加(複数 LAN サブネットいずれも "LAN Subnets" に含まれる' +
+        'こと、他ゾーンは含まれないこと)。テスト計 106 → 108 ケース。',
+    ],
+  },
   {
     version: '4.6.0',
     date: '2026-07-05',

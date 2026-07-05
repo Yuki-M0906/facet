@@ -81,10 +81,22 @@ Known gaps / watch-outs:
 - Real SonicOS syntax varies by version; the accepted form is a clean superset, not
   byte-exact SonicOS. Document the accepted format for users (the UI says "CLI readable
   text"). If you add real-export parsing, do it behind a clearly separate path.
-- Address/service **groups** are not expanded yet (only individual objects).
+- **組み込みアドレスグループ(Sprint 4 S4-3、2026-07-05 対応)**: `"<Zone> Subnets"`
+  (例: `"LAN Subnets"`)は `objContains()`(`evalFW.ts`)がゾーンに割り当てられた
+  全インターフェイスのサブネットの和集合として動的に解決する。実在する SonicOS の
+  組み込みグループであることは SonicOS 6.5 E-CLI Reference Guide の複数箇所
+  (`show address-group ipv4 "LAN Subnets"` 等)で確認済み。
+- **カスタム address-group / service-group のメンバー展開は未対応**(意図的)。
+  SonicOS 6.5 E-CLI Reference Guide を精読したが、グループへメンバーを追加する
+  CLI コマンドの構文(`address-group ipv4 "<name>"` でグループ自体の作成/削除は
+  文書化されているが、メンバー追加コマンドが見当たらない)を確認できなかった。
+  確証の無い構文をでっち上げて実装しない方針を優先(SonicOS 6/7 判別を見送った
+  判断と同じ理由)。実データ(P3-4 の実機 fixture)が手に入った際に再調査する。
 - Unknown object names in a rule are treated as no-match (conservative — avoids false allows).
 
 ## When extending
-- Keep additions inside the existing `parse*` flush/`!`-boundary structure.
-- Add a focused fixture + assertion to `test/facet.test.js`.
-- Mirror any engine change into the embedded copy in `app/facet.html` (see ARCHITECTURE).
+- Keep additions inside `src/engine/parsers/{cisco,sonicwall}.ts`(既存の
+  flush / `!`-boundary 構造の中に追加する)。**`src/facet-core.js` /
+  `app/facet.html` は v3.1.0 の履歴用で編集禁止**(`CLAUDE.md` 参照)。
+- Add a focused fixture + assertion to `test/engine/engine.test.ts`(Vitest)。
+- 挙動・機能を変更したらバージョンを更新する(`CLAUDE.md` のバージョン管理手順を参照)。
