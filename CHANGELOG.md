@@ -4,6 +4,31 @@
 
 ---
 
+## v4.5.0 — 2026-07-05
+
+### Sprint 4 S4-1 — Cisco Port-channel 設定の継承
+
+- Sprint 3 完了を受け、Sprint 4(評価エンジンのリアリズム強化)に着手。着手前に
+  `evalFW`/`pathTrace`/`mapToPorts`/`verify.ts` を精査し、影響が大きい順に着手する
+  方針で合意。
+- **`mapToPorts.ts`**: `interface Port-channel<N>` に設定された switchport/trunk
+  設定を、対応する物理メンバーポート(`channel-group <N> mode ...` を持つポート)へ
+  継承するロジックを追加。実務では L2 設定を Port-channel 側にのみ書き、物理
+  メンバー側には channel-group コマンドしか書かないパターンが一般的だが、
+  `Port-channel<N>` という論理インターフェイス名は `canonIf()` でどの物理ポート
+  ラベルにも一致しないため、従来はこの設定がサイレントに読み捨てられ、メンバー
+  ポートは「switchport mode 未指定」の bare ポートとして誤って評価されていた。
+- 継承対象: `mode` / `accessVlan` / `trunkNative` / `trunkAllowed` / `ip`・`mask` /
+  `description`。メンバー側が既に自分自身の値を持っている項目は上書きしない
+  (SonicWall の VLAN サブインターフェイス zone 継承と同じ「未設定のみ埋める」方針)。
+  SonicWall の `ParsedInterface.channel` は常に null のため、この処理は Cisco の
+  Port-channel 構成にのみ作用する。
+- テスト 3 ケース追加(継承の基本動作、メンバー側の明示設定を上書きしないこと、
+  対応する Port-channel が存在しないチャネル番号でクラッシュしないこと)。
+  テスト計 98 → 101 ケース、全 PASS(既存ケースへの回帰なし)。
+
+---
+
 ## v4.4.0 — 2026-07-04
 
 ### Sprint 3 P3-3 — 暗黙既定値のモデル化

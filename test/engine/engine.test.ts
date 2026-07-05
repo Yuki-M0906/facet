@@ -357,6 +357,46 @@ describe('STP — spanning-tree mode 既定挙動モデル化(Sprint 3 P3-3)', (
   });
 });
 
+describe('mapToPorts — Port-channel 継承(Sprint 4 S4-1)', () => {
+  const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  it('Port-channel の switchport/trunk 設定が物理メンバーポートへ継承される', () => {
+    const cfg =
+      'hostname PC-TEST\nvlan 10\n name A\n' +
+      'interface Port-channel1\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n' +
+      'interface GigabitEthernet1/0/1\n channel-group 1 mode active\n!\n' +
+      'interface GigabitEthernet1/0/2\n channel-group 1 mode active\n!\n';
+    const swDev = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    mapToPorts(swDev);
+    const p1 = swDev.ports.filter((p) => p.iface === 'GigabitEthernet1/0/1')[0]!;
+    const p2 = swDev.ports.filter((p) => p.iface === 'GigabitEthernet1/0/2')[0]!;
+    expect(p1.cfg!.mode).toBe('trunk');
+    expect(p1.cfg!.trunkAllowed).toContain('10');
+    expect(p2.cfg!.mode).toBe('trunk');
+    expect(p2.cfg!.trunkAllowed).toContain('10');
+  });
+
+  it('メンバーポート自身に明示設定があれば上書きしない', () => {
+    const cfg =
+      'hostname PC-TEST2\nvlan 10\n name A\nvlan 20\n name B\n' +
+      'interface Port-channel1\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n' +
+      'interface GigabitEthernet1/0/1\n switchport mode access\n switchport access vlan 20\n channel-group 1 mode active\n!\n';
+    const swDev = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    mapToPorts(swDev);
+    const p1 = swDev.ports.filter((p) => p.iface === 'GigabitEthernet1/0/1')[0]!;
+    expect(p1.cfg!.mode).toBe('access');
+    expect(p1.cfg!.accessVlan).toBe('20');
+  });
+
+  it('該当する Port-channel が無いチャネルグループ番号は無視される(クラッシュしない)', () => {
+    const cfg = 'hostname PC-TEST3\ninterface GigabitEthernet1/0/1\n channel-group 9 mode active\n!\n';
+    const swDev = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    expect(() => mapToPorts(swDev)).not.toThrow();
+    const p1 = swDev.ports.filter((p) => p.iface === 'GigabitEthernet1/0/1')[0]!;
+    expect(p1.cfg!.mode).toBeNull();
+  });
+});
+
 /* ===== matrix ===== */
 
 const posSub = V.subnets.filter((s) => s.zone === 'POS')[0]!;
