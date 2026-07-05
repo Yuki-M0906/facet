@@ -89,6 +89,18 @@ capabilities が未定義の SKU は silent skip(何も発火しない)。
   IOS/IOS-XE シグナルが含まれる → err(機種選択・ファイル取り違えの早期発見)。
   詳細・判定根拠は `docs/PARSER-NOTES.md`。SonicWall 側は判別ロジック無し
   (同ドキュメント参照)。
+- **ルーティングテーブル(FIB)静的エントリ数(Sprint 4 S4-6)**:直結ルート
+  (SVI 数)+ 静的ルート(`ip route`)の合計が `maxRoutingEntries` を超過 → err。
+  OSPF/EIGRP/BGP 等の動的プロトコルで学習される経路は計算していないため、
+  実際のエントリ数はこれ以上になり得る(下限見積りとして扱う設計。過大評価を
+  避けるため確実に超過している場合のみ発火)。
+- **`maxMacAddresses` は未実装(意図的、Sprint 4 S4-6 で調査済み)**:MAC アドレス
+  テーブルの使用量は「実際に何台の端末がどのポートに接続されるか」に依存し、
+  静的なコンフィグテキストからは原理的に導出できない(config は「何が接続され得るか」
+  を宣言するのみで「何が実際に接続されるか」は含まない)。将来 `mac address-table
+  static` 等の静的エントリ解析を追加すれば部分的なチェックは可能だが、実務での
+  出現頻度が低く優先度は低いと判断し、現時点では未実装のまま `catalog.ts` に
+  値だけ保持している。
 
 ## Path trace
 `pathTrace(state, srcCidr, dstSpec, service)` walks SRC → L2 (access switch → trunk →
