@@ -13,7 +13,7 @@ import {
   parseCisco,
   parseSonicWall,
 } from '@engine/index';
-import type { CiscoBuilderDraft, SonicWallBuilderDraft } from '@engine/types';
+import type { CiscoBuilderDraft, Device, SonicWallBuilderDraft } from '@engine/types';
 
 describe('generateCiscoConfig → parseCisco 往復保証', () => {
   const draft: CiscoBuilderDraft = {
@@ -28,22 +28,32 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
       {
         iface: 'GigabitEthernet1/0/1', mode: 'access', accessVlan: '10',
         trunkNative: null, trunkAllowed: [], portfast: true, bpduguard: true, shutdown: false,
-        aclIn: 'WEB-ACL', aclOut: null,
+        aclIn: 'WEB-ACL', aclOut: null, channelGroup: null,
       },
       {
         iface: 'GigabitEthernet1/0/2', mode: 'access', accessVlan: '20',
         trunkNative: null, trunkAllowed: [], portfast: true, bpduguard: true, shutdown: false,
-        aclIn: null, aclOut: null,
+        aclIn: null, aclOut: null, channelGroup: null,
       },
       {
         iface: 'GigabitEthernet1/0/3', mode: null, accessVlan: null,
         trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
-        aclIn: null, aclOut: null,
+        aclIn: null, aclOut: null, channelGroup: null,
       },
       {
         iface: 'GigabitEthernet1/1/1', mode: 'trunk', accessVlan: null,
         trunkNative: '1', trunkAllowed: ['10', '20'], portfast: false, bpduguard: false, shutdown: false,
-        aclIn: null, aclOut: null,
+        aclIn: null, aclOut: null, channelGroup: null,
+      },
+      {
+        iface: 'TenGigabitEthernet1/1/1', mode: null, accessVlan: null,
+        trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
+        aclIn: null, aclOut: null, channelGroup: '1',
+      },
+      {
+        iface: 'TenGigabitEthernet1/1/2', mode: null, accessVlan: null,
+        trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: false,
+        aclIn: null, aclOut: null, channelGroup: '1',
       },
     ],
     svis: [{ vlan: '10', ip: '192.168.10.1', mask: '255.255.255.0' }],
@@ -55,6 +65,7 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
       ],
     }],
     dhcpPools: [{ name: 'STAFF-POOL', network: '192.168.10.0', mask: '255.255.255.0', gw: '192.168.10.1' }],
+    portChannels: [{ id: '1', mode: 'active', portMode: 'trunk', accessVlan: null, trunkNative: '1', trunkAllowed: ['10', '20'] }],
     security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
   };
 
@@ -107,6 +118,30 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
   it('DHCP プール(network/default-router)が読み戻せる(Sprint 5 SF5-4)', () => {
     expect(parsed.dhcp['STAFF-POOL']).toEqual({ network: '192.168.10.0/24', gw: '192.168.10.1' });
   });
+  it('Port-channel の switchport 設定が読み戻せる(Sprint 5 SF5-6)', () => {
+    const pc = parsed.interfaces['Port-channel1']!;
+    expect(pc.mode).toBe('trunk');
+    expect(pc.trunkNative).toBe('1');
+    expect(pc.trunkAllowed).toEqual(['10', '20']);
+  });
+  it('物理メンバーポートの channel-group が読み戻せる(Sprint 5 SF5-6)', () => {
+    expect(parsed.interfaces['TenGigabitEthernet1/1/1']!.channel).toEqual({ id: '1', mode: 'active' });
+    expect(parsed.interfaces['TenGigabitEthernet1/1/2']!.channel).toEqual({ id: '1', mode: 'active' });
+  });
+  it('mapToPorts で Port-channel の switchport 設定が物理メンバーに継承される(S4-1 との結合)', async () => {
+    const { CATALOG, switchPorts, mapToPorts } = await import('@engine/index');
+    const sm = CATALOG.switch.filter((x) => x.id === 'C9300-24')[0]!;
+    const sw: Device = {
+      key: 'SW1', role: 'switch', model: sm, name: sm.name, unit: 1,
+      ports: switchPorts(sm).map((p) => ({ ...p, status: 'idle' as const, cfg: null, msg: null })),
+      config: text,
+      parsed,
+    };
+    mapToPorts(sw);
+    const member = sw.ports.find((p) => p.iface === 'TenGigabitEthernet1/1/1')!;
+    expect(member.cfg!.mode).toBe('trunk');
+    expect(member.cfg!.trunkAllowed).toEqual(['10', '20']);
+  });
 });
 
 describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', () => {
@@ -115,9 +150,9 @@ describe('generateCiscoConfig: shutdown ポートは interfaces に現れる', (
     ports: [{
       iface: 'GigabitEthernet1/0/5', mode: null, accessVlan: null,
       trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false, shutdown: true,
-      aclIn: null, aclOut: null,
+      aclIn: null, aclOut: null, channelGroup: null,
     }],
-    svis: [], acls: [], dhcpPools: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
+    svis: [], acls: [], dhcpPools: [], portChannels: [], security: { sshOnly: false, enableSecret: false, pwEncrypt: false },
   };
   const parsed = parseCisco(generateCiscoConfig(draft));
   it('shutdown フラグが読み戻せる', () => {
@@ -222,9 +257,9 @@ describe('生成 → verify までのフルパイプライン(Cisco + SonicWall)
       ports: [{
         iface: 'GigabitEthernet1/1/1', mode: 'trunk', accessVlan: null,
         trunkNative: '1', trunkAllowed: ['10'], portfast: false, bpduguard: false, shutdown: false,
-        aclIn: null, aclOut: null,
+        aclIn: null, aclOut: null, channelGroup: null,
       }],
-      svis: [], acls: [], dhcpPools: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
+      svis: [], acls: [], dhcpPools: [], portChannels: [], security: { sshOnly: true, enableSecret: true, pwEncrypt: true },
     };
     const rDraft: SonicWallBuilderDraft = {
       hostname: 'GEN-EDGE',

@@ -8,7 +8,7 @@
  * 生成前にその場で警告(生成後の CAP チェック任せにしない)。
  */
 
-import type { CiscoBuilderDraft, Device, StpVariant, SwitchCapabilities } from '@engine/types';
+import type { ChannelGroupMode, CiscoBuilderDraft, Device, StpVariant, SwitchCapabilities } from '@engine/types';
 import { validateCiscoDraft } from './validation';
 
 interface Props {
@@ -22,6 +22,9 @@ const STP_OPTIONS: { value: StpVariant; label: string }[] = [
   { value: 'pvst', label: 'pvst' },
   { value: 'mst', label: 'mst' },
 ];
+
+/* channel-group の実機で有効な5モードのみ(select で不正値を作れない設計)。 */
+const CHANNEL_MODE_OPTIONS: ChannelGroupMode[] = ['active', 'passive', 'on', 'desirable', 'auto'];
 
 /* Cisco の spanning-tree priority は 4096 刻みの16値のみが実機で有効
  * (0, 4096, 8192, ..., 61440)。select で不正値そのものを作れなくする
@@ -61,6 +64,16 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     const has = p.trunkAllowed.includes(vlanId);
     const trunkAllowed = has ? p.trunkAllowed.filter((v) => v !== vlanId) : [...p.trunkAllowed, vlanId];
     updatePort(i, { trunkAllowed });
+  }
+  /** channel-group への所属を切り替える。所属させる場合はポート個別の L2 設定を
+   * クリアする(L2 は Port-channel 側が正になるため、矛盾した状態を GUI 上で
+   * 作れないようにする。Sprint 5 SF5-6)。 */
+  function setPortChannelGroup(i: number, channelGroup: string | null) {
+    if (channelGroup) {
+      updatePort(i, { channelGroup, mode: null, accessVlan: null, trunkNative: null, trunkAllowed: [], portfast: false, bpduguard: false });
+    } else {
+      updatePort(i, { channelGroup: null });
+    }
   }
 
   function addAcl() {
@@ -107,6 +120,32 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     update({ svis: draft.svis.filter((_, idx) => idx !== i) });
   }
 
+  function addPortChannel() {
+    update({ portChannels: [...draft.portChannels, { id: '', mode: 'active', portMode: null, accessVlan: null, trunkNative: null, trunkAllowed: [] }] });
+  }
+  function updatePortChannel(i: number, patch: Partial<CiscoBuilderDraft['portChannels'][number]>) {
+    update({ portChannels: draft.portChannels.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) });
+  }
+  function removePortChannel(i: number) {
+    const removedId = draft.portChannels[i]?.id;
+    update({
+      portChannels: draft.portChannels.filter((_, idx) => idx !== i),
+      /* 削除された channel-group を参照しているポートのメンバー設定も一緒に外す
+       * (存在しない channel-group 番号が生成テキストに残るのを防ぐ、SF5-3 の
+       * ACL 削除時のクリーンアップと同じ考え方) */
+      ports: draft.ports.map((p) => ({
+        ...p,
+        channelGroup: p.channelGroup === removedId ? null : p.channelGroup,
+      })),
+    });
+  }
+  function togglePortChannelAllowedVlan(i: number, vlanId: string) {
+    const c = draft.portChannels[i]!;
+    const has = c.trunkAllowed.includes(vlanId);
+    const trunkAllowed = has ? c.trunkAllowed.filter((v) => v !== vlanId) : [...c.trunkAllowed, vlanId];
+    updatePortChannel(i, { trunkAllowed });
+  }
+
   function addDhcpPool() {
     update({ dhcpPools: [...draft.dhcpPools, { name: '', network: '', mask: '255.255.255.0', gw: '' }] });
   }
@@ -119,7 +158,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
 
   const vlanAtLimit = !!(caps?.maxVlansSupported && draft.vlans.length >= caps.maxVlansSupported);
   const sviAtLimit = !!(caps?.maxSviCount && draft.svis.length >= caps.maxSviCount);
-  const configuredPortCount = draft.ports.filter((p) => p.mode !== null || p.shutdown).length;
+  const configuredPortCount = draft.ports.filter((p) => p.mode !== null || p.shutdown || p.channelGroup).length;
 
   return (
     <div>
@@ -224,6 +263,61 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
 
       <div className="builder-section">
         <div className="builder-section-title">
+          Port-channel / channel-group(任意、LACP/EtherChannel 束)
+        </div>
+        <p className="note" style={{ marginBottom: 8 }}>
+          複数の物理ポートを1本の論理リンクとして束ねます。switchport 設定はここで
+          一括指定し、下のポート設定で各ポートの channel-group を選択してください。
+        </p>
+        {draft.portChannels.map((c, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <div className="builder-row">
+              <span className="lbl">channel-group</span>
+              <input
+                type="text" value={c.id} placeholder="1" className={errCls(`pc.${i}.id`)}
+                onChange={(e) => updatePortChannel(i, { id: e.target.value })} style={{ maxWidth: 60 }}
+              />
+              {errors[`pc.${i}.id`] && <span className="builder-errmsg">{errors[`pc.${i}.id`]}</span>}
+              <span className="lbl">mode</span>
+              <select value={c.mode} onChange={(e) => updatePortChannel(i, { mode: e.target.value as ChannelGroupMode })}>
+                {CHANNEL_MODE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select value={c.portMode ?? ''} onChange={(e) => updatePortChannel(i, { portMode: (e.target.value || null) as 'access' | 'trunk' | null })}>
+                <option value="">switchport 未設定</option>
+                <option value="access">access</option>
+                <option value="trunk">trunk</option>
+              </select>
+              {c.portMode === 'access' && (
+                <select value={c.accessVlan ?? ''} onChange={(e) => updatePortChannel(i, { accessVlan: e.target.value || null })}>
+                  <option value="">VLAN 選択</option>
+                  {draft.vlans.map((v) => <option key={v.id} value={v.id}>{v.id} {v.name}</option>)}
+                </select>
+              )}
+              {c.portMode === 'trunk' && (
+                <>
+                  <select value={c.trunkNative ?? ''} onChange={(e) => updatePortChannel(i, { trunkNative: e.target.value || null })}>
+                    <option value="">native</option>
+                    {draft.vlans.map((v) => <option key={v.id} value={v.id}>native {v.id}</option>)}
+                  </select>
+                  <div className="builder-vlanchecks">
+                    {draft.vlans.map((v) => (
+                      <label key={v.id}>
+                        <input type="checkbox" checked={c.trunkAllowed.includes(v.id)} onChange={() => togglePortChannelAllowedVlan(i, v.id)} />
+                        {v.id}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+              <span className="x" onClick={() => removePortChannel(i)}>✕</span>
+            </div>
+          </div>
+        ))}
+        <button className="btn ghost sm builder-add" onClick={addPortChannel}>+ Port-channel 追加</button>
+      </div>
+
+      <div className="builder-section">
+        <div className="builder-section-title">
           ポート設定({draft.ports.length} ポート・{configuredPortCount}/{draft.ports.length} 設定済み)
         </div>
         <div className="builder-legend">
@@ -234,49 +328,64 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
         </div>
         <div className="builder-scroll">
           {draft.ports.map((p, i) => {
-            const rowCls = p.shutdown ? 'cfg-shutdown' : p.mode === 'access' ? 'cfg-access' : p.mode === 'trunk' ? 'cfg-trunk' : 'cfg-idle';
+            const rowCls = p.channelGroup ? 'cfg-channel' : p.shutdown ? 'cfg-shutdown' : p.mode === 'access' ? 'cfg-access' : p.mode === 'trunk' ? 'cfg-trunk' : 'cfg-idle';
             return (
               <div className={'builder-row builder-portrow ' + rowCls} key={p.iface}>
                 <span className="lbl">{p.iface.replace(/GigabitEthernet|TenGigabitEthernet/, '')}</span>
-                <select value={p.mode ?? ''} onChange={(e) => updatePort(i, { mode: (e.target.value || null) as 'access' | 'trunk' | null })}>
-                  <option value="">未設定</option>
-                  <option value="access">access</option>
-                  <option value="trunk">trunk</option>
-                </select>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {p.mode === 'access' && (
-                    <>
-                      <select value={p.accessVlan ?? ''} onChange={(e) => updatePort(i, { accessVlan: e.target.value || null })}>
-                        <option value="">VLAN 選択</option>
-                        {draft.vlans.map((v) => <option key={v.id} value={v.id}>{v.id} {v.name}</option>)}
-                      </select>
-                      <label className="inline">
-                        <input type="checkbox" checked={p.portfast} onChange={(e) => updatePort(i, { portfast: e.target.checked })} />
-                        portfast
-                      </label>
-                      <label className="inline">
-                        <input type="checkbox" checked={p.bpduguard} onChange={(e) => updatePort(i, { bpduguard: e.target.checked })} />
-                        bpduguard
-                      </label>
-                    </>
-                  )}
-                  {p.mode === 'trunk' && (
-                    <>
-                      <select value={p.trunkNative ?? ''} onChange={(e) => updatePort(i, { trunkNative: e.target.value || null })}>
-                        <option value="">native</option>
-                        {draft.vlans.map((v) => <option key={v.id} value={v.id}>native {v.id}</option>)}
-                      </select>
-                      <div className="builder-vlanchecks">
-                        {draft.vlans.map((v) => (
-                          <label key={v.id}>
-                            <input type="checkbox" checked={p.trunkAllowed.includes(v.id)} onChange={() => toggleAllowedVlan(i, v.id)} />
-                            {v.id}
+                {p.channelGroup ? (
+                  <span className="note">channel-group {p.channelGroup} のメンバー(L2 設定は Port-channel 側)</span>
+                ) : (
+                  <>
+                    <select value={p.mode ?? ''} onChange={(e) => updatePort(i, { mode: (e.target.value || null) as 'access' | 'trunk' | null })}>
+                      <option value="">未設定</option>
+                      <option value="access">access</option>
+                      <option value="trunk">trunk</option>
+                    </select>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {p.mode === 'access' && (
+                        <>
+                          <select value={p.accessVlan ?? ''} onChange={(e) => updatePort(i, { accessVlan: e.target.value || null })}>
+                            <option value="">VLAN 選択</option>
+                            {draft.vlans.map((v) => <option key={v.id} value={v.id}>{v.id} {v.name}</option>)}
+                          </select>
+                          <label className="inline">
+                            <input type="checkbox" checked={p.portfast} onChange={(e) => updatePort(i, { portfast: e.target.checked })} />
+                            portfast
                           </label>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                          <label className="inline">
+                            <input type="checkbox" checked={p.bpduguard} onChange={(e) => updatePort(i, { bpduguard: e.target.checked })} />
+                            bpduguard
+                          </label>
+                        </>
+                      )}
+                      {p.mode === 'trunk' && (
+                        <>
+                          <select value={p.trunkNative ?? ''} onChange={(e) => updatePort(i, { trunkNative: e.target.value || null })}>
+                            <option value="">native</option>
+                            {draft.vlans.map((v) => <option key={v.id} value={v.id}>native {v.id}</option>)}
+                          </select>
+                          <div className="builder-vlanchecks">
+                            {draft.vlans.map((v) => (
+                              <label key={v.id}>
+                                <input type="checkbox" checked={p.trunkAllowed.includes(v.id)} onChange={() => toggleAllowedVlan(i, v.id)} />
+                                {v.id}
+                              </label>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+                {draft.portChannels.length > 0 && (
+                  <>
+                    <span className="lbl">channel-group</span>
+                    <select value={p.channelGroup ?? ''} onChange={(e) => setPortChannelGroup(i, e.target.value || null)}>
+                      <option value="">なし</option>
+                      {draft.portChannels.filter((c) => c.id).map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
+                    </select>
+                  </>
+                )}
                 {draft.acls.length > 0 && (
                   <>
                     <span className="lbl">ACL in</span>

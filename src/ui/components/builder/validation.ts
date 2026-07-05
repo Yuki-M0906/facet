@@ -123,6 +123,20 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     if (!isValidIp(d.gw)) errors[`dhcp.${i}.gw`] = 'IP アドレスの形式が不正です';
   });
 
+  const seenChannelIds = new Map<string, number>();
+  draft.portChannels.forEach((c, i) => {
+    if (!/^\d+$/.test(c.id) || Number(c.id) < 1) {
+      errors[`pc.${i}.id`] = 'channel-group 番号は 1 以上の整数で入力してください';
+    } else {
+      const prev = seenChannelIds.get(c.id);
+      if (prev !== undefined) {
+        errors[`pc.${i}.id`] = 'channel-group 番号が重複しています';
+        errors[`pc.${prev}.id`] = 'channel-group 番号が重複しています';
+      }
+      seenChannelIds.set(c.id, i);
+    }
+  });
+
   return errors;
 }
 
