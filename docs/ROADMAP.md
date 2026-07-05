@@ -74,14 +74,27 @@
       いた過大評価を是正)。詳細は `docs/VERIFICATION-RULES.md`
 - [ ] **P3-4** 実機 `show` 出力(匿名化)から **大量の test fixture** を作成
 
-### Sprint 4 — 評価エンジンのリアリズム強化
-**所要:** 4〜5 日。
+### Sprint 4 — 評価エンジンのリアリズム強化(進行中)
+**所要:** 4〜5 日。着手前にコード調査を行い、影響が大きい順に着手する方針で合意
+(2026-07-05)。
 
-- SonicWall: 組み込みオブジェクト(LAN Subnets、WAN Subnets 等)、サービスグループ展開、
-  NAT/route/policy 評価順
-- Cisco: SVI ↔ portchannel ↔ trunk の継承、LACP 両端モード解決結果のシミュレート、
-  STP ルート選出
-- ハードウェア制約警告(MAC table、ACL TCAM 等)
+- [x] **S4-1**(2026-07-05)Cisco: Port-channel(`interface Port-channel<N>`)の
+      switchport/trunk 設定を、`channel-group <N>` を持つ物理メンバーポートへ継承。
+      従来は canonIf() がどの物理ポートにも一致させられず、実務でよくある
+      「L2 設定は Port-channel 側にのみ書く」パターンの設定がサイレントに
+      読み捨てられていた(`mapToPorts.ts`)
+- [ ] **S4-2** SonicWall: NAT/route/policy 評価の実質化。現状 `pathTrace` は
+      「NAT ポリシーが1つでもあれば NAT ありと表示するだけ」で実際のマッチングを
+      していない。パース済みの静的ルート(`routes`)も一切参照されていない
+- [ ] **S4-3** SonicWall: 組み込みオブジェクト(LAN Subnets、WAN Subnets 等)、
+      address-group / service-group の展開(現状 `objContains`/`resolveSvc` は
+      host/network/range の個別オブジェクトと "any" のみ対応)
+- [ ] **S4-4** STP ルート選出(ルートブリッジ優先度に基づく簡易モデル。現状は
+      union-find によるループ有無の検出のみで root election の概念が無い)
+- [ ] **S4-5** LACP 両端の実効フォーミング判定(モード非互換の警告に加え、
+      メンバーポート数の対称性等を評価)
+- [ ] **S4-6** 未使用の CAP フィールド(`maxMacAddresses`/`maxRoutingEntries`)の
+      精査。意味のあるチェックとして実装可能か検討
 
 ### Sprint 5 フォローアップ — GUI 作成モードの精度向上
 **所要:** 2〜3 日。MVP は完了済み(上記参照)。残作業:
@@ -90,6 +103,21 @@
 - ACL / DHCP プール / HSRP のビルダー UI 追加
 - address-object の range 型対応
 - Sprint 3/4 のパーサ精度・評価エンジン強化の成果をフォームに反映
+
+### Sprint 5.5 — 全体 UI/UX デザイン刷新
+**所要:** 3〜4 日。Sprint 5 フォローアップ(作成モードのフォームに限定)とは別に、
+アプリ全体(投入モード・トポロジー・検証結果画面含む全 Phase)の見た目・使い勝手を
+横断的に磨き直す。v3.1.0 の Meiryo UI 統一、v4.1.0 の GUI ハードニング(主に作成
+モードのフォーム部品)以降、アプリ全体を対象にした見直しは未実施。
+
+- レスポンシブ対応(モバイル・タブレット幅での表示崩れ確認・修正)
+- Phase 間の遷移アニメーション・ローディング状態の統一
+- ダークモード以外のテーマ需要があれば検討(現状はダーク基調で固定)
+- 結果画面(Phase 05)の情報密度の見直し(Findings 一覧・マトリクス・経路トレースの
+  優先度づけ)
+- アクセシビリティ(キーボード操作・コントラスト比)の点検
+- 具体的な着手前に、現状のスクリーンショットベースで問題点を洗い出すレビューを
+  Step 1 として実施
 
 ### Sprint 6 — ライブコレクタ(真の "theory → live")
 **所要:** 1 週間。

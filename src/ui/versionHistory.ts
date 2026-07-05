@@ -19,9 +19,26 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.4.0';
+export const CURRENT_VERSION = '4.5.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.5.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-1 — Cisco Port-channel 設定の継承',
+    changes: [
+      '[検証精度] mapToPorts に Port-channel 継承ロジックを追加。実務でよくある' +
+        '「switchport/trunk 設定を interface Port-channel<N> 側にのみ書き、物理' +
+        'メンバー側には channel-group <N> mode ... しか書かない」構成で、従来は' +
+        'Port-channel の設定がどの物理ポートにも対応付かずサイレントに読み捨てられていた' +
+        '(canonIf() が論理IF名を物理ポートラベルに一致させられないため)。',
+      '[挙動] channel-group を持つ物理ポートに対応する Port-channel<N> インターフェイスが' +
+        '存在する場合、mode/accessVlan/trunkNative/trunkAllowed/ip・mask/description のうち' +
+        'メンバー側が未設定の項目のみ継承する(メンバー側に明示設定があれば上書きしない)。',
+      'テスト 3 ケース追加(継承の基本動作、明示設定の非上書き、存在しないチャネル番号での' +
+        '非クラッシュ確認)。テスト計 98 → 101 ケース。',
+    ],
+  },
   {
     version: '4.4.0',
     date: '2026-07-04',

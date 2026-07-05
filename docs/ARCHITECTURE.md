@@ -49,6 +49,12 @@ interface Device {
 `port.status` ∈ `ok | err | lack | idle`。`port.cfg` は `mapToPorts` で
 canonical-iface マッチして対応付けられたパース済 IF。
 
+**Port-channel 継承(Sprint 4 S4-1)**: `interface Port-channel<N>` は物理ポート
+ラベルに直接一致しないため、`mapToPorts` は `channel-group <N>` を持つ物理
+メンバーポートへ、対応する `Port-channel<N>` の switchport/trunk/IP 設定を
+(メンバー側が自分自身の値を持たない項目に限り)継承する。実務で多い
+「L2 設定は Port-channel 側にのみ書く」パターンを取りこぼさないための拡張。
+
 ## 公開 API
 
 `src/engine/index.ts` から re-export される名前付きエクスポート群:

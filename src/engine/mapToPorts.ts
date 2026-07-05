@@ -42,4 +42,36 @@ export function mapToPorts(dev: Device): void {
       if (ifc.zone && !port.cfg.zone) port.cfg.zone = ifc.zone;
     }
   });
+
+  /* ---- Port-channel 論理 IF → 物理メンバーポートへの継承(Sprint 4 S4-1) ----
+   * 実務では switchport/trunk 設定を `interface Port-channel<N>` 側にのみ書き、
+   * 物理メンバー側には `channel-group <N> mode ...` しか書かないパターンが一般的。
+   * `Port-channel<N>` は canonIf() でどの物理ポートラベルにも一致しないため、
+   * 従来はこの設定がどの port.cfg にも反映されずサイレントに読み捨てられていた。
+   * メンバー側が既に自分自身の値を持っている場合は上書きしない(実際に書かれた
+   * 設定を尊重する。SonicWall の zone 継承と同じ「未設定のみ埋める」方針)。
+   * SonicWall の ParsedInterface は channel が常に null のため、このブロックは
+   * Cisco の port-channel 構成にのみ作用する。 */
+  const channelIfs: Record<string, ParsedInterface> = {};
+  Object.keys(dev.parsed.interfaces).forEach((k) => {
+    const ifc = (dev.parsed!.interfaces as Record<string, ParsedInterface>)[k]!;
+    const m = ifc.name.match(/^Port-channel(\d+)$/i);
+    if (m) channelIfs[m[1]!] = ifc;
+  });
+  if (Object.keys(channelIfs).length) {
+    dev.ports.forEach((p) => {
+      if (!p.cfg || !p.cfg.channel) return;
+      const src = channelIfs[p.cfg.channel.id];
+      if (!src) return;
+      const c = p.cfg;
+      if (!c.mode && src.mode) c.mode = src.mode;
+      if (!c.accessVlan && src.accessVlan) c.accessVlan = src.accessVlan;
+      if (!c.trunkNative && src.trunkNative) c.trunkNative = src.trunkNative;
+      if ((!c.trunkAllowed || !c.trunkAllowed.length) && src.trunkAllowed && src.trunkAllowed.length) {
+        c.trunkAllowed = src.trunkAllowed.slice();
+      }
+      if (!c.ip && src.ip) { c.ip = src.ip; c.mask = src.mask; }
+      if (!c.description && src.description) c.description = src.description;
+    });
+  }
 }
