@@ -23,6 +23,7 @@ import type {
   AppState,
   CiscoParsed,
   Device,
+  Link,
   Role,
   RouterCatalog,
   SonicWallParsed,
@@ -484,6 +485,98 @@ describe('verify — 静的ルート next-hop 到達性(Sprint 4 S4-2)', () => {
   it('next-hop が既知サブネット内なら発火しない', () => {
     const V = buildRouteState('10.0.0.254');
     expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('next-hop'))).toBe(false);
+  });
+});
+
+describe('STP — root election とブロックポート推定(Sprint 4 S4-4)', () => {
+  const rmTz4 = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm4 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  function mkSwitchTriPort(key: string, priorityLine: string) {
+    const cfg =
+      'hostname ' + key + '\nspanning-tree mode rapid-pvst\n' + priorityLine +
+      'vlan 10\n name A\n' +
+      'interface GigabitEthernet1/0/1\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n' +
+      'interface GigabitEthernet1/0/2\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n' +
+      'interface GigabitEthernet1/0/3\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n';
+    return makeDev(key, 'switch', sm4, parseCisco(cfg));
+  }
+  function findStpFinding(V: ReturnType<typeof verify>) {
+    return V.findings.find((f) => f.cat === 'STP' && f.why?.includes('推定ルートブリッジ'))!;
+  }
+
+  it('priority が最小のスイッチが root になる(device key の辞書順とは無関係)', () => {
+    const rTz = makeDev('R1', 'router', rmTz4, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = mkSwitchTriPort('SW1', '');
+    const sw2 = mkSwitchTriPort('SW2', '');
+    const sw3 = mkSwitchTriPort('SW3', 'spanning-tree priority 0\n');
+    [rTz, sw1, sw2, sw3].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW2', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW3', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW3', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/3' } },
+    ];
+    const st: AppState = { router: rTz, switches: [sw1, sw2, sw3], devices: [rTz, sw1, sw2, sw3], topoMode: 'manual', links };
+    const V = verify(st);
+    const f = findStpFinding(V);
+    expect(f.why).toContain('SW3(priority 0)');
+  });
+
+  it('priority 未設定同士なら device key の辞書順でタイブレーク', () => {
+    const rTz = makeDev('R1', 'router', rmTz4, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = mkSwitchTriPort('SW1', '');
+    const sw2 = mkSwitchTriPort('SW2', '');
+    const sw3 = mkSwitchTriPort('SW3', '');
+    [rTz, sw1, sw2, sw3].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW2', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW3', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW3', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/3' } },
+    ];
+    const st: AppState = { router: rTz, switches: [sw1, sw2, sw3], devices: [rTz, sw1, sw2, sw3], topoMode: 'manual', links };
+    const V = verify(st);
+    const f = findStpFinding(V);
+    expect(f.why).toContain('SW1(priority 32768)');
+  });
+
+  it('4台リングでは冗長エッジのブロック側を一意に特定できる', () => {
+    const rTz = makeDev('R1', 'router', rmTz4, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = mkSwitchTriPort('SW1', 'spanning-tree priority 100\n');
+    const sw2 = mkSwitchTriPort('SW2', '');
+    const sw3 = mkSwitchTriPort('SW3', '');
+    const sw4 = mkSwitchTriPort('SW4', '');
+    [rTz, sw1, sw2, sw3, sw4].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/3' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW2', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW3', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW3', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW4', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW4', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz, switches: [sw1, sw2, sw3, sw4], devices: [rTz, sw1, sw2, sw3, sw4], topoMode: 'manual', links };
+    const V = verify(st);
+    const f = findStpFinding(V);
+    expect(f.why).toContain('SW1(priority 100)');
+    expect(f.why).toContain('SW3:GigabitEthernet1/0/2');
+    expect(f.why).not.toContain('特定できず');
+  });
+
+  it('対称な三角形トポロジーではブロック側を「特定できず」と誠実に報告する', () => {
+    const rTz = makeDev('R1', 'router', rmTz4, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = mkSwitchTriPort('SW1', '');
+    const sw2 = mkSwitchTriPort('SW2', '');
+    [rTz, sw1, sw2].forEach((d) => mapToPorts(d));
+    const links: Link[] = [
+      { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'R1', iface: 'X1' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/1' } },
+      { a: { key: 'SW1', iface: 'GigabitEthernet1/0/2' }, b: { key: 'SW2', iface: 'GigabitEthernet1/0/2' } },
+    ];
+    const st: AppState = { router: rTz, switches: [sw1, sw2], devices: [rTz, sw1, sw2], topoMode: 'manual', links };
+    const V = verify(st);
+    const f = findStpFinding(V);
+    expect(f.why).toContain('特定できず');
   });
 });
 

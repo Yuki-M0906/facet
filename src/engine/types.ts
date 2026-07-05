@@ -291,6 +291,10 @@ export interface CiscoParsed {
   interfaces: Record<string, ParsedInterface>;
   svis: Record<string, { ip: string; mask: string | null }>;
   stpMode: string | null;
+  /** `spanning-tree priority` / `spanning-tree vlan <list> priority` の値。
+   * 未設定なら null(root election では IEEE/Cisco 既定値 32768 を適用する側で解釈する。
+   * Sprint 4 S4-4)。 */
+  stpPriority: number | null;
   defaultGw: string | null;
   routes: Array<{ dst: string; mask: string; nh: string }>;
   acls: Record<string, AclLine[]>;

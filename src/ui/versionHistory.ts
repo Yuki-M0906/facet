@@ -19,9 +19,26 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.7.0';
+export const CURRENT_VERSION = '4.8.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.8.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-4 — STP root election + UI文言改善',
+    changes: [
+      '[検証精度] STP ループ検出時に、簡易的なルートブリッジ選出とブロックポート' +
+        '推定を追加。`spanning-tree priority` のパースに対応し、優先度最小の' +
+        'スイッチをルートブリッジと推定(同点時は device key でタイブレーク)。' +
+        'ルートからのホップ数で冗長エッジのブロック側を推定し、距離が同点で' +
+        '判定できない場合は「特定できず」と誠実に報告する。',
+      '[UI改善] 「GUI でコンフィグを作成」画面の説明文を短い文に分割し、' +
+        '読みやすく改善。',
+      'テスト 4 ケース追加(priority による root 選出、device key タイブレーク、' +
+        '4台リングでのブロック側特定、対称トポロジーでの「特定できず」報告)。' +
+        'テスト計 108 → 112 ケース。',
+    ],
+  },
   {
     version: '4.7.0',
     date: '2026-07-05',
