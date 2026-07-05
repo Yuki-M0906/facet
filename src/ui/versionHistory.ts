@@ -19,9 +19,25 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.13.0';
+export const CURRENT_VERSION = '4.14.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.14.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-5 — address-object の range 型対応',
+    changes: [
+      '[機能追加] SonicWall ビルダーフォームのアドレスオブジェクトに range 型を追加。' +
+        '開始 IP・終了 IP を GUI で指定し、`address-object ipv4 <name> range <from> <to>` ' +
+        'として生成できるようにした(パース側・evalFW 側は既に range 型を実装済みで、' +
+        'ビルダー側のみ未対応だった箇所を埋めた)。',
+      'range 型は parseSonicWall の正規表現上 zone 句を持たないため、range 選択時は ' +
+        'Zone 入力欄を表示しない設計にした。開始 IP・終了 IP の形式検証に加え、' +
+        '終了 IP が開始 IP 以上であることも検証する。',
+      'テスト 1 ケース追加(address-object range の from/to が正しく往復すること)。' +
+        'テスト計 123 → 124 ケース。',
+    ],
+  },
   {
     version: '4.13.0',
     date: '2026-07-05',

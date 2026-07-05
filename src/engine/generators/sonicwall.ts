@@ -6,9 +6,9 @@
  * 厳密準拠する。test/engine/builder.test.ts でこの保証を機械的に検証する。
  *
  * 意図的に省いているもの(Sprint 5 MVP スコープ外):
- * - address-object の range 型、DHCP スコープ、route-policy、
- *   WAN ping/mgmt 許可設定 — 対応するフォームフィールドを足せば
- *   この生成関数にも数行足すだけで対応可能。
+ * - DHCP スコープ、route-policy、WAN ping/mgmt 許可設定 — 対応する
+ *   フォームフィールドを足せばこの生成関数にも数行足すだけで対応可能。
+ *   address-object の range 型は Sprint 5 SF5-5 で対応済み。
  */
 
 import type { SonicWallBuilderDraft } from '../types';
@@ -21,6 +21,8 @@ export function generateSonicWallConfig(draft: SonicWallBuilderDraft): string {
   draft.addressObjects.forEach((a) => {
     if (a.type === 'host') {
       out.push('address-object ipv4 ' + a.name + ' host ' + a.ip + (a.zone ? ' zone ' + a.zone : ''));
+    } else if (a.type === 'range') {
+      out.push('address-object ipv4 ' + a.name + ' range ' + a.from + ' ' + a.to);
     } else {
       out.push('address-object ipv4 ' + a.name + ' network ' + a.ip + ' ' + a.mask + (a.zone ? ' zone ' + a.zone : ''));
     }

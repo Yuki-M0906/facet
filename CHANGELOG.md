@@ -4,6 +4,30 @@
 
 ---
 
+## v4.14.0 — 2026-07-05
+
+### Sprint 5 フォローアップ SF5-5 — address-object の range 型対応
+
+- SonicWall ビルダーフォームのアドレスオブジェクトに `range` 型を追加
+  (`SonicWallBuilderAddrObj.type: 'host' | 'network' | 'range'` +
+  `from`/`to` フィールド)。パース側(`parseSonicWall`)と `evalFW.objContains`
+  は `range` 型を既に完全サポート済みだったが、ビルダー UI 側だけが未対応
+  だった箇所を埋めた。
+- 生成される構文は `address-object ipv4 <name> range <from> <to>`。
+  `parseSonicWall` の range 用正規表現は `zone` 句を読み取らないため、
+  生成側も zone を出力せず、UI 側も range 選択時は Zone 入力欄を表示しない
+  設計にした(往復不能な入力を GUI 上で作れないようにする、既存の設計哲学
+  を踏襲)。
+- 開始 IP・終了 IP の形式検証に加え、終了 IP が開始 IP 以上であることも
+  検証するようにした。
+- テスト 1 ケース追加(range の `from`/`to` が `parseSonicWall` で正しく
+  読み戻せること)。テスト計 123 → 124 ケース、全 PASS(既存ケースへの
+  回帰なし)。ブラウザでの実地確認: range 型アドレスオブジェクトを作成し、
+  生成 → 検証まで一連の操作をエラーなく完走できることを確認
+  (コンソールエラー 0 件)。
+
+---
+
 ## v4.13.0 — 2026-07-05
 
 ### Sprint 5 フォローアップ SF5-4 — DHCP プールビルダー UI
