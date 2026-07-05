@@ -397,6 +397,77 @@ describe('mapToPorts — Port-channel 継承(Sprint 4 S4-1)', () => {
   });
 });
 
+describe('pathTrace — NAT ポリシーの実質評価(Sprint 4 S4-2)', () => {
+  const rmTz2 = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm2 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  function buildNatState(natCfg: string) {
+    const cfg =
+      'system name NAT-TEST\n' +
+      'address-object ipv4 net-lan network 192.168.1.0 255.255.255.0 zone LAN\n' +
+      'interface X0\n zone LAN\n ip 192.168.1.1 netmask 255.255.255.0\n' +
+      'interface X1\n zone WAN\n ip 203.0.113.2 netmask 255.255.255.248\n' +
+      natCfg +
+      'access-rule from LAN to WAN\n action allow\n source any\n destination any\n service any\n';
+    const rNat = makeDev('R1', 'router', rmTz2, parseSonicWall(cfg));
+    const swNat = makeDev('SW1', 'switch', sm2, parseCisco('hostname X\nspanning-tree mode rapid-pvst\n'));
+    [rNat, swNat].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: rNat, switches: [swNat], devices: [rNat, swNat], topoMode: 'star', links: [] };
+    st.links = autoLinks(st);
+    return st;
+  }
+
+  it('original-source が一致する NAT ポリシーがあれば該当ポリシーとして表示', () => {
+    const st = buildNatState(
+      'nat-policy\n original-source net-lan\n translated-source X1-IP\n outbound-interface X1\n end\n',
+    );
+    const t = pathTrace(st, '192.168.1.0/24', '__WAN__', 'any');
+    const natHop = t.hops.filter((h) => h.node === 'NAT')[0]!;
+    expect(natHop.detail).toContain('該当 NAT ポリシー');
+    expect(natHop.detail).toContain('net-lan');
+  });
+
+  it('一致する NAT ポリシーが無い場合はその旨を明示(以前は無条件で「NATあり」表示)', () => {
+    const st = buildNatState(
+      'nat-policy\n original-source other-zone-only\n translated-source X1-IP\n outbound-interface X1\n end\n',
+    );
+    const t = pathTrace(st, '192.168.1.0/24', '__WAN__', 'any');
+    const natHop = t.hops.filter((h) => h.node === 'NAT')[0]!;
+    expect(natHop.detail).toContain('一致する条件');
+  });
+
+  it('NAT ポリシー未定義なら従来通りデフォルト SNAT 想定と表示(回帰確認)', () => {
+    const st = buildNatState('');
+    const t = pathTrace(st, '192.168.1.0/24', '__WAN__', 'any');
+    const natHop = t.hops.filter((h) => h.node === 'NAT')[0]!;
+    expect(natHop.detail).toContain('NAT ポリシー未定義');
+  });
+});
+
+describe('verify — 静的ルート next-hop 到達性(Sprint 4 S4-2)', () => {
+  const rmTz3 = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm3 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  function buildRouteState(nh: string) {
+    const cfg = 'hostname RT-TEST\nspanning-tree mode rapid-pvst\nip route 10.99.0.0 255.255.255.0 ' + nh + '\n';
+    const rTz = makeDev('R1', 'router', rmTz3, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const swDev = makeDev('SW1', 'switch', sm3, parseCisco(cfg));
+    [rTz, swDev].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: rTz, switches: [swDev], devices: [rTz, swDev], topoMode: 'star', links: [] };
+    st.links = autoLinks(st);
+    return verify(st);
+  }
+
+  it('next-hop が既知のどのサブネットにも属さない場合は L3 lack', () => {
+    const V = buildRouteState('172.16.0.1');
+    expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('next-hop') && f.desc.includes('172.16.0.1'))).toBe(true);
+  });
+  it('next-hop が既知サブネット内なら発火しない', () => {
+    const V = buildRouteState('10.0.0.254');
+    expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('next-hop'))).toBe(false);
+  });
+});
+
 /* ===== matrix ===== */
 
 const posSub = V.subnets.filter((s) => s.zone === 'POS')[0]!;

@@ -7,6 +7,7 @@
 import { buildMatrix } from './buildMatrix';
 import { buildSubnets } from './buildSubnets';
 import { uniq } from './canonIf';
+import { inSubnet } from './ip';
 import type {
   AccessRule,
   AppState,
@@ -307,6 +308,25 @@ export function verify(state: AppState): VerifyResult {
             'クライアントは誤ったゲートウェイを掴み、外部へ出られない。',
             'default-router を ' + sub.gw + ' に修正。');
         }
+      }
+    });
+  });
+
+  /* ---- 静的ルート(ip route / route-policy)の next-hop 到達性(Sprint 4 S4-2) ----
+   * これまで parseCisco / parseSonicWall がパースする routes は一切参照されていなかった。
+   * next-hop が既知のどのサブネット(構成済み IF から導出)にも属さない場合、
+   * その静的ルートはパケットを送り出せず機能しない。 */
+  devs.forEach((d) => {
+    if (!d.parsed) return;
+    const routes = (d.parsed as { routes?: Array<{ dst: string; mask: string; nh: string }> }).routes;
+    if (!routes || !routes.length) return;
+    routes.forEach((rt) => {
+      const reachable = subnets.some((s) => inSubnet(rt.nh, s.cidr));
+      if (!reachable) {
+        add('L3', 'lack', d.key,
+          '静的ルート ' + rt.dst + '/' + rt.mask + ' の next-hop ' + rt.nh + ' が既知のどのサブネットにも属しません。',
+          'next-hop に到達できない静的ルートは機能せず、対応する宛先への通信ができません。',
+          'next-hop が正しいか、対応するインターフェイス/サブネットが構成されているか確認してください。');
       }
     });
   });

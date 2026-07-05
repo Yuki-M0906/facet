@@ -5,9 +5,28 @@
  */
 
 import { buildSubnets } from './buildSubnets';
-import { evalFW } from './evalFW';
+import { evalFW, objContains } from './evalFW';
 import { bitsToMaskInt, intToIp, ipToInt } from './ip';
-import type { AppState, PathHop, PathTraceResult } from './types';
+import type { AppState, NatPolicy, PathHop, PathTraceResult, SonicWallParsed } from './types';
+
+/* ---- 該当 NAT ポリシーのマッチング(Sprint 4 S4-2) ----
+ * パーサが抽出する NAT ポリシーは original-source / translated-source /
+ * outbound-interface のみ(SonicOS の全条件の簡略化サブセット)。この範囲で
+ * 判定できる限り、最初に条件を満たしたポリシーを採用する(SonicOS のルール評価は
+ * 上から順に最初の一致を採用する方式に準拠)。 */
+function findMatchingNat(
+  natList: NatPolicy[],
+  addr: SonicWallParsed['addr'],
+  srcIp: string,
+  outboundIface: string | null,
+): NatPolicy | null {
+  for (const n of natList) {
+    if (n.orig && !objContains(addr, n.orig, srcIp)) continue;
+    if (n.iface && outboundIface && n.iface.toUpperCase() !== outboundIface.toUpperCase()) continue;
+    return n;
+  }
+  return null;
+}
 
 export function pathTrace(
   state: AppState,
@@ -121,12 +140,22 @@ export function pathTrace(
   });
   if (fwd === 'deny') return finalize(hops, 'deny', 'ファイアウォールポリシーで遮断');
 
-  /* NAT */
+  /* NAT(Sprint 4 S4-2: 該当ポリシーの実質評価。従来は nat ポリシーが1件でも
+   * 定義されていれば無条件に「NAT ポリシーで変換」と表示しており、実際にこの
+   * 通信に一致するかどうかを見ていなかった) */
   if (wan) {
-    const hasNat = !!(r.parsed && (r.parsed as never as { nat?: unknown[] }).nat && (r.parsed as never as { nat: unknown[] }).nat.length);
+    const rp = r.parsed as SonicWallParsed | null;
+    const natList = rp?.nat || [];
+    const matched = natList.length ? findMatchingNat(natList, rp!.addr, src.gw, wsub!.iface) : null;
     hops.push({
       node: 'NAT',
-      detail: hasNat ? '明示的 NAT ポリシーで送元変換' : 'デフォルト SNAT(WAN IP へ)を想定',
+      detail: matched
+        ? '該当 NAT ポリシー(original-source=' + (matched.orig || 'any') + ' → translated-source=' +
+          (matched.trans || '不明') + ', outbound=' + (matched.iface || wsub!.iface) + ')で送元変換'
+        : natList.length
+        ? '定義済み NAT ポリシー ' + natList.length + ' 件はあるが、この通信(送元 ' + src.gw +
+          ')に一致する条件(original-source / outbound-interface)が見つからない。既定 SNAT(WAN IP へ)を想定'
+        : 'NAT ポリシー未定義。デフォルト SNAT(WAN IP へ)を想定',
       status: 'info',
     });
   }

@@ -4,6 +4,35 @@
 
 ---
 
+## v4.6.0 — 2026-07-05
+
+### Sprint 4 S4-2 — SonicWall NAT/静的ルート評価の実質化
+
+- **`pathTrace.ts`**: NAT ホップの評価を実質化。従来は `nat.length > 0` という
+  だけで無条件に「明示的 NAT ポリシーで送元変換」と表示しており、そのポリシーが
+  実際にこの通信(送元 IP・アウトバウンドインターフェイス)に一致するかどうかを
+  一切見ていなかった。`findMatchingNat()` を新設し、`original-source`(address-
+  object 経由で送元 IP を含むか)と `outbound-interface` の両方を満たす最初の
+  ポリシーを採用する(SonicOS の上から順に最初の一致を採用する評価方式に準拠)。
+  一致するポリシーが無い場合は「定義済み NAT ポリシー N 件はあるが、この通信に
+  一致する条件が見つからない」と明示するようにした。
+- **`verify.ts`**: `parseCisco`/`parseSonicWall` が抽出する静的ルート(Cisco の
+  `ip route`、SonicWall の `route-policy`)が、これまで verify() から一切参照
+  されていなかった問題を修正。next-hop が既知のどのサブネット(構成済みイン
+  ターフェイスから導出)にも属さない静的ルートは実際には機能しないため、L3
+  カテゴリで検出するようにした(DHCP `default-router` 不一致チェックと同じ
+  パターン)。
+- テスト 5 ケース追加(NAT ポリシー一致・不一致・未定義の 3 パターン、静的ルート
+  next-hop の到達可否 2 パターン)。テスト計 101 → 106 ケース、全 PASS(既存
+  ケースへの回帰なし。既存 fixture はいずれも `ip route`/`route-policy`/
+  `nat-policy` を使用していなかったため、拡張前の挙動を偶然にも壊していなかった
+  ことを確認済み)。ブラウザでの実地確認: SonicWall コンフィグに `nat-policy` を
+  含めて Phase 05 の経路トレースを実行し、該当 NAT ポリシーの内容
+  (`original-source=net-lan → translated-source=X1-IP, outbound=X1`)が正しく
+  表示されることを確認(コンソールエラー 0 件)。
+
+---
+
 ## v4.5.0 — 2026-07-05
 
 ### Sprint 4 S4-1 — Cisco Port-channel 設定の継承
