@@ -19,9 +19,26 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.5.0';
+export const CURRENT_VERSION = '4.6.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.6.0',
+    date: '2026-07-05',
+    title: 'Sprint 4 S4-2 — SonicWall NAT/静的ルート評価の実質化',
+    changes: [
+      '[検証精度] pathTrace の NAT ホップを実質評価に変更。従来は NAT ポリシーが' +
+        '1件でも定義されていれば無条件に「NAT ポリシーで変換」と表示しており、' +
+        '実際にその通信に一致するか(original-source/outbound-interface)を' +
+        '見ていなかった。該当ポリシーが無い場合はその旨を明示するようにした。',
+      '[検証精度] parseCisco/parseSonicWall がパースする静的ルート(ip route /' +
+        'route-policy)が verify() で一切参照されていなかった問題を修正。' +
+        'next-hop が既知のどのサブネットにも属さない静的ルート(機能しない設定)を' +
+        'L3 カテゴリで検出する。',
+      'テスト 5 ケース追加(NAT一致/不一致/未定義の3パターン、静的ルート到達可否の' +
+        '2パターン)。テスト計 101 → 106 ケース。',
+    ],
+  },
   {
     version: '4.5.0',
     date: '2026-07-05',
