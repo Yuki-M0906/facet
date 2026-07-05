@@ -97,6 +97,20 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     if (!isValidVlanId(s.vlan)) errors[`svi.${i}.vlan`] = 'VLAN を選択してください';
     if (!isValidIp(s.ip)) errors[`svi.${i}.ip`] = 'IP アドレスの形式が不正です';
     if (!isValidMask(s.mask)) errors[`svi.${i}.mask`] = 'サブネットマスクの形式が不正です';
+    /* HSRP(SF5-7): 片方だけ入力された「未完成」な状態のみ弾く。両方空なら
+     * 単に「HSRP 未設定」として扱う(必須フィールドではない)。 */
+    const hasGroup = isNonEmpty(s.standbyGroup ?? '');
+    const hasIp = isNonEmpty(s.standbyIp ?? '');
+    if (hasGroup || hasIp) {
+      /* HSRP(v1、standby version 2 は本ビルダーでは未対応)のグループ番号は
+       * 0〜255。 */
+      if (!/^\d+$/.test(s.standbyGroup ?? '') || Number(s.standbyGroup) > 255) {
+        errors[`svi.${i}.standbyGroup`] = 'HSRP グループ番号は 0〜255 の整数で入力してください';
+      }
+      if (!isValidIp(s.standbyIp ?? '')) {
+        errors[`svi.${i}.standbyIp`] = '仮想 IP アドレスの形式が不正です';
+      }
+    }
   });
 
   const seenAclNames = new Map<string, number>();

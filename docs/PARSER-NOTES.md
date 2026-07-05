@@ -56,7 +56,8 @@ Handled: `hostname`, `vlan` + `name`, `interface` and `interface range` (expande
 `switchport` access/trunk/native/allowed, `channel-group`, `ip address` (+secondary),
 `speed`/`duplex`/`mtu`, `spanning-tree mode`/`portfast`/`bpduguard`, SVIs (`interface
 Vlan<n>`), `ip route` (static), `ip access-list` / `access-list` (parsed, lightly used),
-`ip dhcp pool` (`network` + `default-router`), `standby` (HSRP, basic), `shutdown`,
+`ip dhcp pool` (`network` + `default-router`), `standby <group> ip <ip>` (HSRP;
+group + virtual IP only, no priority/preempt — Sprint 5 SF5-7), `shutdown`,
 and security signals (`transport input`, `enable secret`/`password`, `snmp-server
 community`, `service password-encryption`).
 

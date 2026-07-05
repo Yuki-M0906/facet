@@ -274,8 +274,8 @@ export function parseCisco(text: string): CiscoParsed {
     else if ((m = t.match(/ip access-group\s+(\S+)\s+(in|out)/))) {
       if (m[2] === 'in') cur.aclIn = m[1]!;
       else cur.aclOut = m[1]!;
-    } else if ((m = t.match(/^standby\s+\d+\s+ip\s+([\d.]+)/))) {
-      cur.standby = m[1]!;
+    } else if ((m = t.match(/^standby\s+(\d+)\s+ip\s+([\d.]+)/))) {
+      cur.standby = { group: m[1]!, ip: m[2]! };
     } else if (/spanning-tree portfast/.test(t) && !/disable/.test(t)) cur.portfast = true;
     else if (/spanning-tree bpduguard enable/.test(t)) cur.bpduguard = true;
     else if (/^shutdown$/.test(t)) cur.shutdown = true;

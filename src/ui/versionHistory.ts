@@ -19,9 +19,29 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.15.0';
+export const CURRENT_VERSION = '4.16.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.16.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-7 — HSRP(standby)ビルダー UI(Sprint 5 フォローアップ完了)',
+    changes: [
+      '[機能追加] Cisco ビルダーフォームの SVI に HSRP(`standby <group> ip <ip>`)' +
+        'の作成 UI を追加。`CiscoBuilderSvi.standbyGroup`/`standbyIp` で' +
+        'グループ番号・仮想 IP を GUI で設定できるようにした。',
+      '[パーサ精度向上] `parseCisco` の standby 行の正規表現は仮想 IP のみを' +
+        '読み取り、グループ番号を捨てていた(`ParsedInterface.standby: string | ' +
+        'null`)。往復保証のためグループ番号も読み取るよう拡張し、' +
+        '`ParsedInterface.standby: StandbyConfig | null`(`{group, ip}`)に変更した。' +
+        'priority/preempt 等は現状パースが未対応のため、生成側でも意図的に' +
+        '含めない(生成される全構文はパーサの正規表現に厳密準拠する方針を維持)。',
+      'HSRP グループ番号は 0〜255(HSRP v1 の範囲。`standby version 2` は' +
+        '本ビルダーでは非対応)の整数のみを許可する検証を追加。',
+      'テスト 1 ケース追加(HSRP group/仮想 IP の往復保証)。テスト計 127 → 128 ' +
+        'ケース。**Sprint 5 フォローアップ(SF5-1〜SF5-7)が全項目完了**。',
+    ],
+  },
   {
     version: '4.15.0',
     date: '2026-07-05',
