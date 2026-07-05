@@ -449,6 +449,28 @@ export interface CiscoBuilderPort {
   /** `ip access-group <name> in/out`。null = 未適用(Sprint 5 SF5-3、draft.acls の name を参照) */
   aclIn: string | null;
   aclOut: string | null;
+  /** 所属する Port-channel の id(`channel-group <id> mode ...`)。null = 通常の
+   * 物理ポート(束のメンバーではない)。設定すると mode/accessVlan/trunk 系は
+   * このポート個別ではなく draft.portChannels 側の値を使う(Sprint 5 SF5-6。
+   * メンバー間で LACP モードが割れるのは S4-5 が検出する異常な構成そのものの
+   * ため、GUI からはそもそも作れない設計にする)。 */
+  channelGroup: string | null;
+}
+
+/** channel-group の LACP/PAgP/static モード。実機で有効な5値のみ
+ * (select で不正値を作れない設計。SF5-2 の stpPriority 選択式と同じ考え方)。 */
+export type ChannelGroupMode = 'active' | 'passive' | 'on' | 'desirable' | 'auto';
+
+/** Port-channel 論理インターフェイス(Sprint 5 SF5-6)。switchport 設定はここに
+ * 書き、mapToPorts の Port-channel 継承ロジック(S4-1)で物理メンバーポートへ
+ * 伝播する。物理メンバー側は CiscoBuilderPort.channelGroup でこの id を参照する。 */
+export interface CiscoBuilderPortChannel {
+  id: string;                          // 'channel-group <id>' / 'interface Port-channel<id>'
+  mode: ChannelGroupMode;
+  portMode: IfaceMode | null;          // Port-channel 側の switchport mode(access/trunk)
+  accessVlan: string | null;
+  trunkNative: string | null;
+  trunkAllowed: string[];
 }
 
 export interface CiscoBuilderSvi {
@@ -490,6 +512,7 @@ export interface CiscoBuilderDraft {
   svis: CiscoBuilderSvi[];
   acls: CiscoBuilderAcl[];
   dhcpPools: CiscoBuilderDhcpPool[];
+  portChannels: CiscoBuilderPortChannel[];
   security: CiscoBuilderSecurity;
 }
 

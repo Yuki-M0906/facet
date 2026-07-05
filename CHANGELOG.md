@@ -4,6 +4,43 @@
 
 ---
 
+## v4.15.0 — 2026-07-05
+
+### Sprint 5 フォローアップ SF5-6 — Port-channel/channel-group ビルダー UI
+
+- Cisco ビルダーフォームに Port-channel/channel-group(LACP/EtherChannel 束)の
+  作成 UI を新設。`CiscoBuilderDraft.portChannels: CiscoBuilderPortChannel[]`
+  で channel-group 番号・LACP モード(`ChannelGroupMode`:
+  active/passive/on/desirable/auto の実機で有効な5値のみ)・switchport 設定
+  (access/trunk)を一括定義できる。各ポートには
+  `CiscoBuilderPort.channelGroup` を追加し、所属する channel-group を選択する
+  ことでメンバーとして束ねられる。
+- Sprint 4 S4-1(Port-channel 論理 IF → 物理メンバーへの継承)・S4-5(LACP 束の
+  実効フォーミング判定)は既にエンジン側で実装済みだったが、GUI からその構成を
+  組み立てる手段がなかった。generator は `interface Port-channel<N>` ブロック
+  (switchport 設定を持つ場合のみ)と、各メンバーの `interface <phys>` 内に
+  `channel-group <N> mode <mode>` を出力する。
+- [設計] channel-group に所属させたポートは、そのポート個別の switchport
+  設定(mode/accessVlan/trunk)を GUI 上で編集できないようにした。実機の
+  L2 設定は Port-channel 側が正であり、メンバー間で設定が食い違う状態
+  (まさに S4-5 が異常として検出する構成)を GUI からそもそも作れない設計にした
+  (既存の「存在しないポートは作れない」設計哲学の延長)。
+- channel-group 番号は 1 以上の整数のみを許可し、重複チェックを追加。
+  Port-channel を削除すると、参照していたポートの channel-group 割当も自動的に
+  解除する(SF5-3 の ACL 削除時のクリーンアップと同じ考え方。存在しない
+  channel-group 番号が生成テキストに残らないようにするため)。
+- テスト 3 ケース追加(Port-channel 側の switchport 設定の往復保証、物理
+  メンバーポートの channel-group の往復保証、`mapToPorts` による S4-1 継承
+  ロジックとの結合確認 — Port-channel 側の trunk 設定が実際に物理メンバー
+  ポートへ継承されることを確認)。テスト計 124 → 127 ケース、全 PASS
+  (既存ケースへの回帰なし)。ブラウザでの実地確認: channel-group 5 を作成し
+  (mode=active、switchport mode trunk)、2 本の物理ポートをメンバーとして
+  割り当てたところ、対象ポート行の switchport 設定が非表示になり
+  「channel-group 5 のメンバー」の注記に切り替わることを確認。生成 → 検証まで
+  一連の操作をエラーなく完走できることを確認(コンソールエラー 0 件)。
+
+---
+
 ## v4.14.0 — 2026-07-05
 
 ### Sprint 5 フォローアップ SF5-5 — address-object の range 型対応

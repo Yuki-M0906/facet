@@ -187,6 +187,7 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .builder-row.cfg-access{border-left-width:3px;border-left-color:var(--emerald)}
 .builder-row.cfg-trunk{border-left-width:3px;border-left-color:var(--gold)}
 .builder-row.cfg-shutdown{border-left-width:3px;border-left-color:var(--garnet);opacity:.75}
+.builder-row.cfg-channel{border-left-width:3px;border-left-color:var(--sapphire)}
 .builder-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .builder-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 .bl-access i{background:var(--emerald)}.bl-trunk i{background:var(--gold)}.bl-shutdown i{background:var(--garnet)}.bl-idle i{background:var(--steel)}

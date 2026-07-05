@@ -19,9 +19,32 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.14.0';
+export const CURRENT_VERSION = '4.15.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.15.0',
+    date: '2026-07-05',
+    title: 'Sprint 5 フォローアップ SF5-6 — Port-channel/channel-group ビルダー UI',
+    changes: [
+      '[機能追加] Cisco ビルダーフォームに Port-channel/channel-group(LACP/' +
+        'EtherChannel 束)の作成 UI を追加。`CiscoBuilderDraft.portChannels` で' +
+        'channel-group 番号・LACP モード・switchport 設定(access/trunk)を一括' +
+        '定義し、各ポートの channel-group 選択でメンバーとして束ねられるように' +
+        'した(Sprint 4 S4-1 の Port-channel 継承・S4-5 の束コンシステンシチェック' +
+        'に対応する GUI 側の実装)。',
+      '[設計] channel-group に所属させたポートは、そのポート個別の switchport' +
+        ' 設定(mode/VLAN/trunk)を GUI 上で編集できないようにした。L2 設定は' +
+        ' Port-channel 側が正であり、メンバー間で設定が食い違う状態(S4-5 が' +
+        '検出する異常な構成そのもの)をそもそも GUI から作れない設計にした。',
+      'channel-group 番号の形式検証(1 以上の整数)・重複チェックを追加。' +
+        'Port-channel を削除すると、参照していたポートのメンバー設定も自動的に' +
+        '解除する(SF5-3 の ACL 削除時のクリーンアップと同じ考え方)。',
+      'テスト 3 ケース追加(Port-channel の switchport 設定の往復保証、物理' +
+        'メンバーポートの channel-group の往復保証、mapToPorts による S4-1 継承' +
+        'ロジックとの結合確認)。テスト計 124 → 127 ケース。',
+    ],
+  },
   {
     version: '4.14.0',
     date: '2026-07-05',

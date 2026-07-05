@@ -129,7 +129,11 @@
       開始/終了 IP を GUI で指定して `address-object ipv4 <name> range` を
       生成可能に。パース/評価側(evalFW)は既に対応済みで、ビルダー UI 側の
       抜けを埋めた形
-- [ ] **SF5-6** Port-channel/channel-group ビルダー UI(Cisco、S4-1/S4-5 の成果を反映)
+- [x] **SF5-6**(2026-07-05)Port-channel/channel-group ビルダー UI(Cisco)。
+      channel-group 番号・LACP モード・switchport 設定を一括定義し、ポート側で
+      メンバーとして束ねられるように(S4-1 の継承・S4-5 の束コンシステンシ
+      チェックに対応する GUI 側の実装)。メンバー化したポートは個別の L2 設定を
+      GUI から編集できない設計にし、矛盾した状態を作れないようにした
 - [ ] **SF5-7** HSRP(standby)ビルダー UI(Cisco)
 
 ### Sprint 5.5 — 全体 UI/UX デザイン刷新
