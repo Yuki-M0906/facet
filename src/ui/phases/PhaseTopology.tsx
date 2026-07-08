@@ -4,10 +4,10 @@
  * 手動モードでは SVG ポートクリックで配線可。
  */
 
-import { useState, type MouseEvent } from 'react';
+import { useState } from 'react';
 import type { Device, RuntimePort } from '@engine/types';
 import { useApp } from '../store';
-import { Faceplate } from '../components/Faceplate';
+import { Faceplate, type PortHoverPos } from '../components/Faceplate';
 import { LinkList } from '../components/LinkList';
 import { ManualLinkEditor } from '../components/ManualLinkEditor';
 import { TopologyGraph } from '../components/TopologyGraph';
@@ -26,7 +26,7 @@ export function PhaseTopology() {
 
   const [tip, setTip] = useState<TipState>({ content: null, x: 0, y: 0, visible: false });
 
-  function handlePortHover(device: Device, port: RuntimePort, e: MouseEvent) {
+  function handlePortHover(device: Device, port: RuntimePort, e: PortHoverPos) {
     const content = buildPortTipContent({
       devKey: device.key, iface: port.iface,
       type: port.type, speed: port.speed, poe: port.poe,

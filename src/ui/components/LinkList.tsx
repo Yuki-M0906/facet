@@ -34,7 +34,7 @@ export function LinkList({ links, devices, canDelete, onRemove }: Props) {
           <span className="ar">↔</span>{' '}
           {ifaceLabel(L.b, devices)} <b>{L.b.key}</b>
           {canDelete && (
-            <span className="x" onClick={() => onRemove(i)}>✕</span>
+            <button type="button" className="x" onClick={() => onRemove(i)} aria-label="リンクを削除">✕</button>
           )}
         </div>
       ))}

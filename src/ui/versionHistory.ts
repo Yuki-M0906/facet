@@ -19,9 +19,38 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.17.0';
+export const CURRENT_VERSION = '4.17.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.17.1',
+    date: '2026-07-08',
+    title: 'Sprint 5.5 — キーボード操作のアクセシビリティ改善',
+    changes: [
+      '[修正] リンク削除・VLAN/ACL/Port-channel/SVI/DHCPプール削除・SonicWallの' +
+        'アドレス/サービスオブジェクト・アクセスルール・NAT削除など、削除用の「✕」が' +
+        'クリック専用の <span> になっておりキーボードで到達不能だった箇所(計12箇所)を' +
+        '<button> に変更し、Tabで到達・Enter/Spaceで実行できるようにした。',
+      '[修正] コンフィグファイル選択(ドラッグ&ドロップ枠内の実体 input[type=file])が' +
+        'display:none でタブ順序から完全に除外されていたため、キーボードのみでは' +
+        'ファイル選択ダイアログを開けなかった。視覚的には隠しつつフォーカス・キー入力は' +
+        '受け付ける「visually-hidden」パターンに変更。',
+      '[新機能] シャーシ図(Faceplate)のSVGポートにキーボード操作を追加。tabindex・' +
+        'role・aria-labelを付与し、Enter/Spaceでのポート選択(手動トポロジー配線)、' +
+        'フォーカス時のツールチップ表示(マウスホバーと同等の情報)に対応。',
+      '[修正] バージョン履歴モーダルにフォーカストラップを実装。開いたときに閉じる' +
+        'ボタンへ自動フォーカスし、Tab/Shift+Tabがモーダル外に漏れないようにした上で、' +
+        '閉じた際は呼び出し元のバージョンバッジへフォーカスを戻す。role="dialog" /' +
+        'aria-modal="true" / aria-labelledbyも付与。',
+      '[修正] トポロジーモード切替ボタン・検証レポートのサブナビリンク・フィルタバー・' +
+        '折りたたみパネルの見出し(経路トレース/トポロジー/シャーシ/マトリクス・機器別)・' +
+        'ボタン全般(.btn)にフォーカス時のアウトライン(ゴールド)が表示されていなかった' +
+        '箇所を洗い出し、:focus-visible スタイルを統一的に追加。',
+      '回帰確認: 既存128テスト全PASS、型チェック・ビルド成功、ブラウザでのキーボード' +
+        '単独操作(Tab到達・Enter/Space・Escape・フォーカストラップ・フォーカス復帰)を' +
+        '手動確認。',
+    ],
+  },
   {
     version: '4.17.0',
     date: '2026-07-07',

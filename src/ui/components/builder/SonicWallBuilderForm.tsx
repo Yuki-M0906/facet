@@ -159,7 +159,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
                     onChange={(e) => updateVlanSub(i, j, { mask: e.target.value })}
                   />
                   {errors[`iface.${i}.vlanSub.${j}.mask`] && <span className="builder-errmsg">{errors[`iface.${i}.vlanSub.${j}.mask`]}</span>}
-                  <span className="x" onClick={() => removeVlanSub(i, j)}>✕</span>
+                  <button type="button" className="x" onClick={() => removeVlanSub(i, j)} aria-label="VLANサブインターフェイスを削除">✕</button>
                 </div>
               ))}
             </div>
@@ -224,7 +224,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
                 <input type="text" value={a.zone} placeholder="LAN" onChange={(e) => updateAddrObj(i, { zone: e.target.value })} style={{ maxWidth: 90 }} />
               </>
             )}
-            <span className="x" onClick={() => removeAddrObj(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeAddrObj(i)} aria-label="アドレスオブジェクトを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addAddrObj}>+ アドレスオブジェクト追加</button>
@@ -250,7 +250,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
               onChange={(e) => updateSvcObj(i, { from: e.target.value, to: e.target.value })} style={{ maxWidth: 70 }}
             />
             {errors[`svc.${i}.from`] && <span className="builder-errmsg">{errors[`svc.${i}.from`]}</span>}
-            <span className="x" onClick={() => removeSvcObj(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeSvcObj(i)} aria-label="サービスオブジェクトを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addSvcObj}>+ サービスオブジェクト追加</button>
@@ -284,7 +284,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
               <input type="checkbox" checked={r.enabled} onChange={(e) => updateRule(i, { enabled: e.target.checked })} />
               有効
             </label>
-            <span className="x" onClick={() => removeRule(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeRule(i)} aria-label="アクセスルールを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addRule}>+ ルール追加</button>
@@ -308,7 +308,7 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
             <select value={n.iface} onChange={(e) => updateNat(i, { iface: e.target.value })}>
               {draft.interfaces.map((iface) => <option key={iface.iface} value={iface.iface}>{iface.iface}</option>)}
             </select>
-            <span className="x" onClick={() => removeNat(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeNat(i)} aria-label="NATポリシーを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addNat}>+ NAT ポリシー追加</button>
