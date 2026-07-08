@@ -11,11 +11,14 @@ interface Props {
   onFilter: (f: FindingCategory | 'all') => void;
 }
 
-const ORDER: Record<FindingLevel, number> = { err: 0, lack: 1, info: 2, ok: 3 };
-const CB: Record<FindingCategory, string> = {
+export const FINDING_ORDER: Record<FindingLevel, number> = { err: 0, lack: 1, info: 2, ok: 3 };
+export function sortFindings(findings: Finding[]): Finding[] {
+  return findings.slice().sort((a, b) => FINDING_ORDER[a.level] - FINDING_ORDER[b.level]);
+}
+export const CB: Record<FindingCategory, string> = {
   L1: '物理', L2: 'L2', STP: 'STP', L3: 'L3', FW: 'FW', SEC: 'SEC', CAP: 'CAP',
 };
-const LV: Record<FindingLevel, string> = {
+export const LV: Record<FindingLevel, string> = {
   err: 'エラー', lack: 'コンフィグ不足', info: '情報', ok: '確認',
 };
 
@@ -25,7 +28,7 @@ export function FindingsList({ result, filter, onFilter }: Props) {
     counts[c] = result.findings.filter((f) => f.cat === c).length;
   });
 
-  const sorted: Finding[] = result.findings.slice().sort((a, b) => ORDER[a.level] - ORDER[b.level]);
+  const sorted: Finding[] = sortFindings(result.findings);
   const list = filter === 'all' ? sorted : sorted.filter((f) => f.cat === filter);
 
   return (
