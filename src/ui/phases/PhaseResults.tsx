@@ -3,10 +3,10 @@
  * 元: v3.1.0 の renderResults および buildTrace / runTrace / renderMatrix / renderFindings。
  */
 
-import { useState, type MouseEvent } from 'react';
+import { useState } from 'react';
 import type { Device, FindingCategory, RuntimePort } from '@engine/types';
 import { asEngineState, useApp } from '../store';
-import { Faceplate } from '../components/Faceplate';
+import { Faceplate, type PortHoverPos } from '../components/Faceplate';
 import { TopologyGraph } from '../components/TopologyGraph';
 import { Matrix } from '../components/Matrix';
 import { PathTracePanel } from '../components/PathTracePanel';
@@ -56,7 +56,7 @@ export function PhaseResults() {
 
   const [tip, setTip] = useState<TipState>({ content: null, x: 0, y: 0, visible: false });
 
-  function handlePortHover(device: Device, port: RuntimePort, e: MouseEvent) {
+  function handlePortHover(device: Device, port: RuntimePort, e: PortHoverPos) {
     const content = buildPortTipContent({
       devKey: device.key, iface: port.iface,
       type: port.type, speed: port.speed, poe: port.poe,

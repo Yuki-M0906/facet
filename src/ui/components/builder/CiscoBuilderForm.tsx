@@ -215,7 +215,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
               onChange={(e) => updateVlan(i, { name: e.target.value })}
             />
             {errors[`vlan.${i}.name`] && <span className="builder-errmsg">{errors[`vlan.${i}.name`]}</span>}
-            <span className="x" onClick={() => removeVlan(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeVlan(i)} aria-label="VLANを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addVlan} disabled={vlanAtLimit}>+ VLAN 追加</button>
@@ -239,7 +239,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
                 onChange={(e) => updateAcl(i, { name: e.target.value })}
               />
               {errors[`acl.${i}.name`] && <span className="builder-errmsg">{errors[`acl.${i}.name`]}</span>}
-              <span className="x" onClick={() => removeAcl(i)}>✕</span>
+              <button type="button" className="x" onClick={() => removeAcl(i)} aria-label="ACLを削除">✕</button>
             </div>
             {a.lines.map((l, j) => (
               <div className="builder-row" key={j} style={{ marginLeft: 24 }}>
@@ -252,7 +252,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
                   onChange={(e) => updateAclLine(i, j, { rest: e.target.value })}
                 />
                 {errors[`acl.${i}.line.${j}.rest`] && <span className="builder-errmsg">{errors[`acl.${i}.line.${j}.rest`]}</span>}
-                <span className="x" onClick={() => removeAclLine(i, j)}>✕</span>
+                <button type="button" className="x" onClick={() => removeAclLine(i, j)} aria-label="ACL行を削除">✕</button>
               </div>
             ))}
             <button className="btn ghost sm builder-add" style={{ marginLeft: 24 }} onClick={() => addAclLine(i)}>+ ルール行追加</button>
@@ -309,7 +309,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
                   </div>
                 </>
               )}
-              <span className="x" onClick={() => removePortChannel(i)}>✕</span>
+              <button type="button" className="x" onClick={() => removePortChannel(i)} aria-label="Port-channelを削除">✕</button>
             </div>
           </div>
         ))}
@@ -442,7 +442,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
               onChange={(e) => updateSvi(i, { standbyIp: e.target.value || null })}
             />
             {errors[`svi.${i}.standbyIp`] && <span className="builder-errmsg">{errors[`svi.${i}.standbyIp`]}</span>}
-            <span className="x" onClick={() => removeSvi(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeSvi(i)} aria-label="SVIを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addSvi} disabled={!draft.vlans.length || sviAtLimit}>+ SVI 追加</button>
@@ -484,7 +484,7 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
               onChange={(e) => updateDhcpPool(i, { gw: e.target.value })}
             />
             {errors[`dhcp.${i}.gw`] && <span className="builder-errmsg">{errors[`dhcp.${i}.gw`]}</span>}
-            <span className="x" onClick={() => removeDhcpPool(i)}>✕</span>
+            <button type="button" className="x" onClick={() => removeDhcpPool(i)} aria-label="DHCPプールを削除">✕</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addDhcpPool}>+ DHCP プール追加</button>

@@ -7,18 +7,34 @@
  * - topoSel が渡されたとき: 該当ポートに topo-selected クラスを付与してハイライト
  */
 
-import { type MouseEvent } from 'react';
+import { type KeyboardEvent } from 'react';
 import type { Device, PortStatus, RuntimePort } from '@engine/types';
 
 const PW = 30, PH = 30, GAP = 6, PAD = 4;
+
+/** マウス由来の MouseEvent とキーボードフォーカス由来の合成座標の両方を受け付ける */
+export interface PortHoverPos {
+  clientX: number;
+  clientY: number;
+}
 
 interface Props {
   device: Device;
   annot: boolean;
   onPortClick?: (key: string, iface: string) => void;
-  onPortHover?: (device: Device, port: RuntimePort, e: MouseEvent) => void;
+  onPortHover?: (device: Device, port: RuntimePort, e: PortHoverPos) => void;
   onPortLeave?: () => void;
   topoSel?: { key: string; iface: string } | null;
+}
+
+const STATUS_LABEL: Record<PortStatus, string> = {
+  ok: '確認', err: 'エラー', lack: 'コンフィグ不足', idle: '未使用',
+};
+
+function portAriaLabel(device: Device, p: RuntimePort, annot: boolean, interactive: boolean): string {
+  const base = `${device.name} ${p.label} ポート、${p.type.toUpperCase()} ${p.speed}`;
+  const withStatus = annot ? `${base}、判定 ${STATUS_LABEL[p.status]}` : base;
+  return interactive ? `${withStatus}、選択してリンクを作成` : withStatus;
 }
 
 function sFill(s: PortStatus): string {
@@ -87,6 +103,11 @@ export function Faceplate({ device, annot, onPortClick, onPortHover, onPortLeave
               const isSfp = p.type !== 'rj45';
               const isSelected = topoSel && topoSel.key === device.key && topoSel.iface === p.iface;
               const className = 'port' + (isSelected ? ' topo-selected' : '');
+              const focusable = isInteractive || !!onPortHover;
+              const focusPos = (e: { currentTarget: SVGGElement }): PortHoverPos => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                return { clientX: rect.right, clientY: rect.top };
+              };
               return (
                 <g
                   key={p.iface}
@@ -94,9 +115,20 @@ export function Faceplate({ device, annot, onPortClick, onPortHover, onPortLeave
                   data-dev={device.key}
                   data-if={p.iface}
                   style={{ cursor: isInteractive ? 'crosshair' : 'pointer' }}
+                  tabIndex={focusable ? 0 : undefined}
+                  role={isInteractive ? 'button' : undefined}
+                  aria-label={focusable ? portAriaLabel(device, p, annot, isInteractive) : undefined}
                   onClick={isInteractive ? () => onPortClick!(device.key, p.iface) : undefined}
                   onMouseMove={onPortHover ? (e) => onPortHover(device, p, e) : undefined}
                   onMouseLeave={onPortLeave}
+                  onFocus={onPortHover ? (e) => onPortHover(device, p, focusPos(e)) : undefined}
+                  onBlur={onPortLeave}
+                  onKeyDown={isInteractive ? (e: KeyboardEvent<SVGGElement>) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onPortClick!(device.key, p.iface);
+                    }
+                  } : undefined}
                 >
                   {isSfp ? (
                     <rect

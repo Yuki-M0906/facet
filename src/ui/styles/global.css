@@ -65,6 +65,7 @@ h1.title{font-family:var(--serif);font-weight:500;font-size:clamp(30px,5vw,46px)
 .subnav-links{display:flex;gap:8px;flex-wrap:wrap}
 .subnav-links a{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:6px 14px;border-radius:999px;border:1px solid var(--hair);color:var(--muted);text-decoration:none;transition:all .2s}
 .subnav-links a:hover{border-color:var(--gold);color:var(--gold-lt)}
+.subnav-links a:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-color:var(--gold)}
 #hero,#findings,#diagnostics{scroll-margin-top:130px}
 /* 折り畳みパネル(経路トレース/トポロジー/シャーシ/マトリクス)。ネイティブの
  * <details> 三角マーカーを消し、独自シェブロンに差し替える。 */
@@ -73,6 +74,7 @@ details.panel>summary.eyebrow-collapsible{font-family:var(--mono);font-size:10.5
 details.panel>summary.eyebrow-collapsible::-webkit-details-marker{display:none}
 details.panel>summary.eyebrow-collapsible::after{content:"\2304";font-size:12px;color:var(--gold-dim);transition:transform .25s ease;flex:none}
 details.panel[open]>summary.eyebrow-collapsible::after{transform:rotate(180deg)}
+details.panel>summary.eyebrow-collapsible:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 details.panel>.panel-body{padding:16px 22px 22px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
 .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:16px;display:flex;align-items:center;gap:10px}
@@ -84,6 +86,7 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .spec{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:6px;min-height:14px}
 .btn{font-family:var(--sans);font-size:13.5px;letter-spacing:.08em;padding:13px 26px;border-radius:999px;border:1px solid var(--hair-strong);background:transparent;color:var(--ink);cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:10px}
 .btn:hover{border-color:var(--gold);color:var(--gold-lt)}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .btn.primary{background:linear-gradient(135deg,var(--gold-lt),var(--gold) 60%,var(--gold-dim));color:#1a1510;border-color:transparent;font-weight:600}
 .btn.primary:hover{filter:brightness(1.08);box-shadow:0 10px 30px -8px rgba(201,168,106,.5)}
 .btn:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}
@@ -104,6 +107,7 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .devblock-details>summary.devblock-summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:var(--serif);font-size:15px}
 .devblock-details>summary.devblock-summary::-webkit-details-marker{display:none}
 .devblock-details[open]>summary.devblock-summary{border-bottom:1px solid var(--hair)}
+.devblock-details>summary.devblock-summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .devblock-details .deviceblock{padding:14px 16px 16px;margin-bottom:0}
 .dvdots{display:flex;gap:6px;font-family:var(--mono);font-size:10.5px}
 .dvdot{padding:2px 7px;border-radius:6px}
@@ -121,8 +125,12 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .toggle{display:inline-flex;border:1px solid var(--hair-strong);border-radius:999px;overflow:hidden;margin-bottom:6px;flex-wrap:wrap}
 .toggle button{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:12.5px;padding:9px 20px;cursor:pointer;transition:all .2s}
 .toggle button.on{background:linear-gradient(135deg,var(--gold-lt),var(--gold-dim));color:#1a1510;font-weight:600}
+.toggle button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .linkrow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;padding:7px 0;border-bottom:1px solid var(--hair);color:var(--muted)}
-.linkrow .ar{color:var(--gold)}.linkrow b{color:var(--ink);font-weight:500}.linkrow .x{margin-left:auto;cursor:pointer;color:var(--garnet);opacity:.7}.linkrow .x:hover{opacity:1}
+.linkrow .ar{color:var(--gold)}.linkrow b{color:var(--ink);font-weight:500}
+.linkrow .x{margin-left:auto;cursor:pointer;color:var(--garnet);opacity:.7;background:none;border:none;font:inherit;padding:2px}
+.linkrow .x:hover{opacity:1}
+.linkrow .x:focus-visible{opacity:1;outline:2px solid var(--gold);outline-offset:2px}
 .editor{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
 .editor select{width:auto;min-width:90px;padding:8px 28px 8px 12px;font-size:12px}
 .slot{display:flex;align-items:center;gap:16px;padding:15px 18px;border:1px dashed var(--hair-strong);border-radius:12px;margin-bottom:13px;transition:all .3s;background:rgba(0,0,0,.16)}
@@ -132,7 +140,11 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .slot .info{flex:1;min-width:0}.slot .info .n{font-size:14px}.slot .info .s{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px}.slot .info .s.ok{color:var(--emerald)}
 .slot .info .cov{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.02em;cursor:default}
 .slot .info .cov.cov-warn{color:var(--topaz)}
-.slot input[type=file]{display:none}
+/* Sprint 5.5 a11y: display:none はフォーカス可能要素をタブ順序から完全に外して
+ * しまい、ファイル選択がキーボード操作から到達不能になっていた。視覚的には隠しつつ
+ * フォーカス・キー入力は受け付ける「visually-hidden」パターンに変更する。 */
+.slot input[type=file]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.slot label.btn:focus-within{outline:2px solid var(--gold);outline-offset:2px}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}@media(max-width:680px){.summary{grid-template-columns:repeat(2,1fr)}}
 .stat{background:var(--raised);border:1px solid var(--hair);border-radius:13px;padding:18px 20px;position:relative;overflow:hidden}
 .stat .num{font-family:var(--serif);font-size:42px;line-height:1;font-weight:500}.stat .cap{font-size:11.5px;letter-spacing:.1em;color:var(--muted);margin-top:6px;text-transform:uppercase}
@@ -161,9 +173,11 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .topissues-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:10px}
 .finding.compact{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:10px 14px;text-decoration:none;color:inherit}
 .finding.compact:hover{background:rgba(0,0,0,.28)}
+.finding.compact:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .finding.compact .desc{flex:1;min-width:140px;margin:0}
 .topissues-more{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--gold-lt);text-decoration:none}
 .topissues-more:hover{color:var(--gold)}
+.topissues-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .finding{border-left:2px solid var(--steel);padding:13px 17px;margin-bottom:11px;background:rgba(0,0,0,.18);border-radius:0 10px 10px 0}
 .finding.err{border-color:var(--garnet)}.finding.lack{border-color:var(--topaz)}.finding.ok{border-color:var(--emerald)}.finding.info{border-color:var(--sapphire)}
 .finding .fh{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap}
@@ -179,6 +193,7 @@ select{background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),l
 .filterbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .filterbar button{font-family:var(--mono);font-size:11px;padding:6px 13px;border-radius:999px;border:1px solid var(--hair);background:transparent;color:var(--muted);cursor:pointer}
 .filterbar button.on{border-color:var(--gold);color:var(--gold-lt);background:rgba(201,168,106,.08)}
+.filterbar button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .matrix{overflow-x:auto;margin-top:6px}
 table.mx{border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:max-content}
 table.mx th,table.mx td{border:1px solid var(--hair);padding:7px 11px;text-align:center;white-space:nowrap}
@@ -219,8 +234,9 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .builder-row input[type=text],.builder-row select{width:auto;min-width:80px;padding:7px 10px;font-size:12.5px}
 .builder-row label.inline{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);white-space:nowrap}
 .builder-row .lbl{font-family:var(--mono);font-size:11px;color:var(--gold);min-width:44px}
-.builder-row .x{cursor:pointer;color:var(--garnet);opacity:.7;margin-left:auto;font-size:14px}
+.builder-row .x{cursor:pointer;color:var(--garnet);opacity:.7;margin-left:auto;font-size:14px;background:none;border:none;font-family:inherit;padding:2px}
 .builder-row .x:hover{opacity:1}
+.builder-row .x:focus-visible{opacity:1;outline:2px solid var(--gold);outline-offset:2px}
 .builder-scroll{max-height:460px;overflow-y:auto;padding-right:4px}
 .builder-add{font-size:11px;padding:7px 14px;margin-top:4px}
 .builder-vlanchecks{display:flex;flex-wrap:wrap;gap:6px}
@@ -291,6 +307,7 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .topo-instruction code{color:var(--gold-lt)}
 .port.topo-selected rect:first-child{stroke:var(--gold-lt)!important;stroke-width:2.5!important;filter:drop-shadow(0 0 6px rgba(230,205,148,.55))}
 .port.topo-linked rect:first-child{stroke:var(--emerald)!important}
+.port:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:2px}
 footer{border-top:1px solid var(--hair);padding:24px 0;color:var(--faint);font-size:11px;font-family:var(--mono);letter-spacing:.1em;text-align:center}
 
 /* バージョン履歴モーダル */
