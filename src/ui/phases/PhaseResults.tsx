@@ -10,7 +10,7 @@ import { Faceplate } from '../components/Faceplate';
 import { TopologyGraph } from '../components/TopologyGraph';
 import { Matrix } from '../components/Matrix';
 import { PathTracePanel } from '../components/PathTracePanel';
-import { FindingsList } from '../components/FindingsList';
+import { FindingsList, sortFindings, CB, LV } from '../components/FindingsList';
 import { ScoreRing } from '../components/ScoreRing';
 import { PortTooltip, buildPortTipContent, type TipState } from '../components/PortTooltip';
 
@@ -32,6 +32,19 @@ function Stat({ kind, n, cap }: StatProps) {
       <div className="cap">{cap}</div>
     </div>
   );
+}
+
+/** シャーシ区画の折り畳みサマリ用(機器ごとの ok/err/lack 集計) */
+function countStatuses(d: Device): { ok: number; err: number; lack: number } {
+  const c = { ok: 0, err: 0, lack: 0 };
+  d.ports.forEach((p) => {
+    if (p.cfg) {
+      if (p.status === 'ok') c.ok++;
+      else if (p.status === 'err') c.err++;
+      else if (p.status === 'lack') c.lack++;
+    }
+  });
+  return c;
 }
 
 export function PhaseResults() {
@@ -67,6 +80,11 @@ export function PhaseResults() {
     }
   }));
   const clean = err === 0 && lack === 0 && tot > 0;
+
+  /* 上位の指摘(概要パネルでのプレビュー用、上位3件) */
+  const topIssues = sortFindings(result.findings)
+    .filter((f) => f.level === 'err' || f.level === 'lack')
+    .slice(0, 3);
 
   /* エクスポート */
   function exportJson() {
@@ -119,103 +137,154 @@ export function PhaseResults() {
         実機の物理疎通そのものを保証するものではありません。配備前監査・設定レビューの一次防衛線としてご利用ください。
       </div>
 
-      {/* スコア */}
-      <div className="score">
-        <ScoreRing score={result.score} />
-        <div className="verdicttxt">
-          <b>
-            {result.nErr ? `要修正:エラー ${result.nErr} 件`
-              : result.nLack ? `要確認:不足 ${result.nLack} 件`
-              : '良好:重大な指摘なし'}
-          </b>
-          エラー {result.nErr} / コンフィグ不足 {result.nLack} 件を検出。スコアは重要度加重の目安です。
+      {/* サブナビ */}
+      <nav className="subnav">
+        <div className="subnav-links">
+          <a href="#hero">概要</a>
+          <a href="#findings">指摘{result.nErr + result.nLack > 0 ? ` ${result.nErr + result.nLack}` : ''}</a>
+          <a href="#diagnostics">診断</a>
         </div>
-      </div>
+      </nav>
 
-      {/* サマリ */}
-      <div className="summary">
-        <Stat kind="tot" n={tot} cap="構成ポート" />
-        <Stat kind="ok" n={ok} cap="確認" />
-        <Stat kind="lack" n={lack} cap="不足" />
-        <Stat kind="err" n={err} cap="エラー" />
-      </div>
-
-      {/* カテゴリチップ */}
-      <div className="cats" style={{ marginBottom: 22 }}>
-        {(Object.keys(CAT_NAMES) as FindingCategory[]).map((c) => {
-          const x = result.cats[c];
-          const cls = x.err ? 'err' : x.lack ? 'lack' : 'ok';
-          const txt = x.err ? 'エラー ' + x.err : x.lack ? '不足 ' + x.lack : '問題なし';
-          return (
-            <div key={c} className={'cat ' + cls}>
-              <div className="cn">
-                {CAT_NAMES[c][0]}
-                <small>{CAT_NAMES[c][1]}</small>
-              </div>
-              <span className="pill">{txt}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 経路トレース */}
-      <div className="panel">
-        <div className="eyebrow">Reachability — 経路トレース</div>
-        <PathTracePanel engineState={engineState} subnets={result.subnets} />
-        <p className="note">
-          送信元サブネットから宛先までをホップ単位で追跡し、ゲートウェイ・ルーティング・FWポリシー・NATのどこで許可/遮断されるかを表示します。
-        </p>
-      </div>
-
-      {/* 論理接続図 */}
-      <div className="panel">
-        <div className="eyebrow">Topology — 論理接続図</div>
-        <TopologyGraph
-          router={router}
-          switches={state.switches}
-          links={state.links}
-          annot={true}
-          result={result}
-        />
-      </div>
-
-      {/* フェイスプレート */}
-      <div className="panel">
-        <div className="eyebrow">Chassis — ポート別ステータス</div>
-        <div>
-          {devices.map((d) => (
-            <Faceplate
-              key={d.key}
-              device={d}
-              annot={true}
-              onPortHover={handlePortHover}
-              onPortLeave={handlePortLeave}
-            />
-          ))}
+      {/* 概要(スコア・サマリ・カテゴリ・上位の指摘) */}
+      <div className="panel tier-hero" id="hero">
+        <div className="score">
+          <ScoreRing score={result.score} />
+          <div className="verdicttxt">
+            <b>
+              {result.nErr ? `要修正:エラー ${result.nErr} 件`
+                : result.nLack ? `要確認:不足 ${result.nLack} 件`
+                : '良好:重大な指摘なし'}
+            </b>
+            エラー {result.nErr} / コンフィグ不足 {result.nLack} 件を検出。スコアは重要度加重の目安です。
+          </div>
         </div>
-        <div className="legend">
-          <span className="lg-ok"><i />確認</span>
-          <span className="lg-err"><i />エラー</span>
-          <span className="lg-lack"><i />コンフィグ不足</span>
-          <span className="lg-idle"><i />未使用</span>
-        </div>
-      </div>
 
-      {/* マトリクス */}
-      <div className="panel">
-        <div className="eyebrow">Reachability Matrix — サブネット間到達性</div>
-        <Matrix matrix={result.matrix} />
-        <p className="note">○=通過 / ×=ポリシーで遮断・未許可 / △=L3ゲートウェイ無し。同一サブネット内(L2)は対象外。</p>
+        <div className="summary">
+          <Stat kind="tot" n={tot} cap="構成ポート" />
+          <Stat kind="ok" n={ok} cap="確認" />
+          <Stat kind="lack" n={lack} cap="不足" />
+          <Stat kind="err" n={err} cap="エラー" />
+        </div>
+
+        <div className="cats" style={{ marginBottom: 0 }}>
+          {(Object.keys(CAT_NAMES) as FindingCategory[]).map((c) => {
+            const x = result.cats[c];
+            const cls = x.err ? 'err' : x.lack ? 'lack' : 'ok';
+            const txt = x.err ? 'エラー ' + x.err : x.lack ? '不足 ' + x.lack : '問題なし';
+            return (
+              <button
+                type="button"
+                key={c}
+                className={'cat ' + cls + (state.filter === c ? ' active' : '')}
+                onClick={() => {
+                  dispatch({ type: 'SET_FILTER', filter: c });
+                  document.getElementById('findings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                <div className="cn">
+                  {CAT_NAMES[c][0]}
+                  <small>{CAT_NAMES[c][1]}</small>
+                </div>
+                <span className="pill">{txt}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {topIssues.length > 0 && (
+          <div className="topissues">
+            <div className="topissues-label">上位の指摘</div>
+            {topIssues.map((f, i) => (
+              <a key={i} href="#findings" className={'finding compact ' + f.level}>
+                <span className={'badge ' + f.level}>{LV[f.level]}</span>
+                <span className="badge cat">{CB[f.cat] || f.cat}</span>
+                <span className="loc">{f.where}</span>
+                <span className="desc">{f.desc}</span>
+              </a>
+            ))}
+            <a href="#findings" className="topissues-more">
+              指摘 {result.nErr + result.nLack} 件をすべて見る ▸
+            </a>
+          </div>
+        )}
       </div>
 
       {/* 指摘 */}
-      <div className="panel">
+      <div className="panel tier-hero" id="findings">
         <div className="eyebrow">Findings & Suggestions</div>
         <FindingsList
           result={result}
           filter={state.filter}
           onFilter={(f) => dispatch({ type: 'SET_FILTER', filter: f })}
         />
+      </div>
+
+      {/* 診断(経路トレース・論理接続図・シャーシ・マトリクス、既定で折り畳み) */}
+      <div id="diagnostics">
+        <details className="panel tier-ref">
+          <summary className="eyebrow-collapsible">Reachability — 経路トレース</summary>
+          <div className="panel-body">
+            <PathTracePanel engineState={engineState} subnets={result.subnets} />
+            <p className="note">
+              送信元サブネットから宛先までをホップ単位で追跡し、ゲートウェイ・ルーティング・FWポリシー・NATのどこで許可/遮断されるかを表示します。
+            </p>
+          </div>
+        </details>
+
+        <details className="panel tier-ref">
+          <summary className="eyebrow-collapsible">Topology — 論理接続図</summary>
+          <div className="panel-body">
+            <TopologyGraph
+              router={router}
+              switches={state.switches}
+              links={state.links}
+              annot={true}
+              result={result}
+            />
+          </div>
+        </details>
+
+        <details className="panel tier-ref">
+          <summary className="eyebrow-collapsible">Chassis — ポート別ステータス</summary>
+          <div className="panel-body">
+            {devices.map((d, i) => {
+              const c = countStatuses(d);
+              return (
+                <details className="devblock-details" key={d.key} open={i === 0}>
+                  <summary className="devblock-summary">
+                    <span>{d.name}</span>
+                    <span className="dvdots">
+                      {c.err > 0 && <span className="dvdot err">エラー {c.err}</span>}
+                      {c.lack > 0 && <span className="dvdot lack">不足 {c.lack}</span>}
+                      {c.err === 0 && c.lack === 0 && <span className="dvdot ok">確認 {c.ok}</span>}
+                    </span>
+                  </summary>
+                  <Faceplate
+                    device={d}
+                    annot={true}
+                    onPortHover={handlePortHover}
+                    onPortLeave={handlePortLeave}
+                  />
+                </details>
+              );
+            })}
+            <div className="legend">
+              <span className="lg-ok"><i />確認</span>
+              <span className="lg-err"><i />エラー</span>
+              <span className="lg-lack"><i />コンフィグ不足</span>
+              <span className="lg-idle"><i />未使用</span>
+            </div>
+          </div>
+        </details>
+
+        <details className="panel tier-ref">
+          <summary className="eyebrow-collapsible">Reachability Matrix — サブネット間到達性</summary>
+          <div className="panel-body">
+            <Matrix matrix={result.matrix} />
+            <p className="note">○=通過 / ×=ポリシーで遮断・未許可 / △=L3ゲートウェイ無し。同一サブネット内(L2)は対象外。</p>
+          </div>
+        </details>
       </div>
 
       {/* 操作 */}
