@@ -19,9 +19,22 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.19.0';
+export const CURRENT_VERSION = '4.19.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.19.1',
+    date: '2026-07-11',
+    title: 'Phase 00/01 のカードの縦高さが揃わないバグを修正',
+    changes: [
+      '[修正] `.panel + .panel`(縦積みパネル用のmargin-top)がグリッド内の' +
+        'カード(Phase 00モードカード3枚・Phase 01機種選定カード2枚)にも' +
+        '意図せず適用され、2枚目以降が22px分低くstretchされるバグを修正。' +
+        'モードカードは内部をflex縦積みにし、CTAボタンをmargin-top:autoで' +
+        '下端に揃えることで、カードの高さと「このモードで進む→」ボタンの' +
+        '位置が全カードで完全に一致するように。',
+    ],
+  },
   {
     version: '4.19.0',
     date: '2026-07-11',
