@@ -35,7 +35,9 @@ import type {
 } from '@engine/types';
 import { SMP_C1, SMP_C2, SMP_SW } from '../samples';
 
-export type PhaseId = 'mode' | 'select' | 'topo' | 'upload' | 'build' | 'analyze' | 'results' | 'complete';
+export type PhaseId =
+  | 'mode' | 'select' | 'topo' | 'upload' | 'build' | 'analyze' | 'results' | 'complete'
+  | 'quick' | 'quickResults';
 
 export const PHASE_STEP: Record<PhaseId, number> = {
   mode: 0,
@@ -46,6 +48,11 @@ export const PHASE_STEP: Record<PhaseId, number> = {
   analyze: 4,
   results: 4,
   complete: 5,
+  /* 簡易検証モードは6フェーズのステッパーと構造が対応しないため、
+   * Header 側で mode==='quick' のときステッパー自体を非表示にする。
+   * この2値は Record<PhaseId, number> を満たすためのダミー値。 */
+  quick: 0,
+  quickResults: 0,
 };
 
 export const STEPS: ReadonlyArray<{ label: string; en: string }> = [
@@ -75,6 +82,13 @@ export interface UIState {
   /* Phase 05 — 検証結果 */
   result: VerifyResult | null;
   filter: FindingCategory | 'all';
+  /* 簡易検証モード — 単体機器のみを対象にした静的チェック(トポロジー/機種選定を
+   * 経ずに直接ファイルを投入する)。verify-mode/build-mode の router/switches とは
+   * 独立した state を持ち、モードを跨いでも互いに干渉しない。 */
+  quickRole: 'router' | 'switch';
+  quickModelId: string;
+  quickDevice: Device | null;
+  quickResult: VerifyResult | null;
 }
 
 export type Action =
@@ -98,6 +112,10 @@ export type Action =
   | { type: 'GENERATE_CONFIGS' }
   | { type: 'RUN_VERIFY' }
   | { type: 'SET_FILTER'; filter: FindingCategory | 'all' }
+  | { type: 'SET_QUICK_ROLE'; role: 'router' | 'switch' }
+  | { type: 'SET_QUICK_MODEL'; id: string }
+  | { type: 'QUICK_VERIFY'; text: string }
+  | { type: 'QUICK_RESET' }
   | { type: 'RESET' };
 
 /* ---- Device 生成 ---- */
@@ -188,6 +206,10 @@ const initial: UIState = {
   builderDrafts: {},
   result: null,
   filter: 'all',
+  quickRole: 'router',
+  quickModelId: CATALOG.router[0]!.id,
+  quickDevice: null,
+  quickResult: null,
 };
 
 /* ---- 副作用ヘルパ(reducer 内で呼ぶ純粋なもののみ) ---- */
@@ -206,6 +228,27 @@ function ingest(d: Device, text: string): void {
   d.config = text;
   d.parsed = d.role === 'router' ? parseSonicWall(text) : parseCisco(text);
   mapToPorts(d);
+}
+
+/**
+ * 簡易検証モード用: 単体機器だけを持つ最小限の AppState を組み立てる。
+ * verify() はリンク間チェック(L1/L2の両端不一致・STPループ・到達性)を
+ * `state.links` が空なら自然にスキップするため、専用の検証ロジックを別途持たず
+ * 既存の verify() をそのまま呼べる(単一の正 = engine 側のルールと常に一致する)。
+ * スイッチのみをアップロードした場合でも AppState.router は必須のため、
+ * parsed:null の無害なプレースホルダを立てる(router.parsed を参照する全チェックは
+ * 既存コードが軒並み `if (router.parsed)` で守られているため、これだけで
+ * ルータ関連チェックが静かにスキップされる)。
+ */
+function buildQuickAppState(device: Device): AppState {
+  if (device.role === 'router') {
+    return { router: device, switches: [], devices: [device], topoMode: 'star', links: [] };
+  }
+  const placeholder: Device = {
+    key: '__NONE__', role: 'router', model: CATALOG.router[0]!, name: '(未指定)',
+    unit: 0, ports: [], config: null, parsed: null,
+  };
+  return { router: placeholder, switches: [device], devices: [placeholder, device], topoMode: 'star', links: [] };
 }
 
 function clearDevice(d: Device): void {
@@ -372,6 +415,30 @@ function reducer(s: UIState, a: Action): UIState {
 
     case 'SET_FILTER':
       return { ...s, filter: a.filter };
+
+    case 'SET_QUICK_ROLE': {
+      const models = a.role === 'router' ? CATALOG.router : CATALOG.switch;
+      return {
+        ...s, quickRole: a.role, quickModelId: models[0]!.id,
+        quickDevice: null, quickResult: null,
+      };
+    }
+    case 'SET_QUICK_MODEL':
+      return { ...s, quickModelId: a.id };
+
+    case 'QUICK_VERIFY': {
+      const model = s.quickRole === 'router'
+        ? CATALOG.router.filter((x) => x.id === s.quickModelId)[0]!
+        : CATALOG.switch.filter((x) => x.id === s.quickModelId)[0]!;
+      const device = makeDevice(s.quickRole === 'router' ? 'R1' : 'SW1', s.quickRole, model);
+      ingest(device, a.text);
+      const result = verify(buildQuickAppState(device));
+      return { ...s, quickDevice: device, quickResult: result, phase: 'quickResults' };
+    }
+    case 'QUICK_RESET':
+      /* 機種・種別の選択はそのまま残し、投入済みデータだけクリアする
+       * (同じ種別の別ファイルをもう一度チェックしたいケースが多いため)。 */
+      return { ...s, quickDevice: null, quickResult: null, phase: 'quick' };
 
     case 'RESET':
       return { ...initial };

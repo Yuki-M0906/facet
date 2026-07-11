@@ -11,7 +11,7 @@ import { CURRENT_VERSION } from '../versionHistory';
 import { useApp } from '../store';
 
 export function Header() {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [showHistory, setShowHistory] = useState(false);
   const verBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -52,7 +52,7 @@ export function Header() {
           </button>
         </div>
       </div>
-      <Stepper />
+      {state.mode !== 'quick' && <Stepper />}
       {showHistory && <VersionHistoryModal onClose={closeHistory} />}
     </header>
   );
