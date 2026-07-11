@@ -97,7 +97,19 @@ export function PhaseTopology() {
             <button
               key={m}
               className={state.topoMode === m ? 'on' : ''}
-              onClick={() => dispatch({ type: 'SET_TOPO_MODE', mode: m })}
+              onClick={() => {
+                /* 全機能監査 Medium-14: star/cascadeへの切替はautoLinks()の結果で
+                 * links を無条件に置き換える(保存領域が無いためmanualに戻しても
+                 * 復元できない)。手動配線が既にある状態からの切替時のみ確認する。 */
+                if (
+                  state.topoMode === 'manual' &&
+                  m !== 'manual' &&
+                  state.links.length > 0 &&
+                  !window.confirm('手動で作成した配線(' + state.links.length + '本)はすべて破棄され、' +
+                    (m === 'star' ? 'スター' : 'カスケード') + '構成で自動生成し直されます。よろしいですか?')
+                ) return;
+                dispatch({ type: 'SET_TOPO_MODE', mode: m });
+              }}
             >
               {m === 'star' ? 'スター' : m === 'cascade' ? 'カスケード' : '手動'}
             </button>
@@ -113,6 +125,7 @@ export function PhaseTopology() {
         {state.topoMode === 'manual' && (
           <ManualLinkEditor
             devices={devices}
+            links={state.links}
             onAdd={(link) => dispatch({ type: 'ADD_LINK', link })}
           />
         )}

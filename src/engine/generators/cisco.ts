@@ -33,6 +33,16 @@ function switchportLines(
   return lines;
 }
 
+/** ポートに実際に何らかの config が出力されるか(未設定=行を出さない対象外ポート
+ * との判定基準)。全機能監査 Medium-18: 以前はこの判定条件を generator・
+ * CiscoBuilderForm・PhaseBuild の3箇所がそれぞれ独自に(食い違う内容で)持って
+ * おり、例えば ACL のみを適用したポート(mode:null, aclIn:'X')が実際には出力
+ * されるのに「設定済み」カウントに含まれない、という表示と実態のズレがあった。
+ * ここを唯一の判定源とし、UI 側もこれを参照する。 */
+export function isCiscoPortConfigured(p: CiscoBuilderPort): boolean {
+  return p.mode !== null || p.shutdown || !!p.aclIn || !!p.aclOut || !!p.channelGroup;
+}
+
 function portLines(p: CiscoBuilderPort, portChannels: CiscoBuilderPortChannel[]): string[] {
   const lines: string[] = [...switchportLines(p.mode, p.accessVlan, p.trunkNative, p.trunkAllowed)];
   if (p.aclIn) lines.push(' ip access-group ' + p.aclIn + ' in');
@@ -82,7 +92,7 @@ export function generateCiscoConfig(draft: CiscoBuilderDraft): string {
 
   /* configured なポートのみ interface ブロックを出力(未設定ポートは行を出さない) */
   draft.ports
-    .filter((p) => p.mode !== null || p.shutdown || p.aclIn || p.aclOut || p.channelGroup)
+    .filter(isCiscoPortConfigured)
     .forEach((p) => {
       out.push('interface ' + p.iface);
       out.push(...portLines(p, draft.portChannels));

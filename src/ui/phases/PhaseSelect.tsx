@@ -18,9 +18,12 @@ function routerCapSummary(cap?: RouterCapabilities): string[] {
   if (!cap) return [];
   const out: string[] = [];
   if (cap.firewallThroughputGbps) out.push('Firewall ' + cap.firewallThroughputGbps + ' Gbps');
+  if (cap.threatPreventionGbps) out.push('Threat Prevention ' + cap.threatPreventionGbps + ' Gbps');
   if (cap.ipsecVpnThroughputGbps) out.push('IPSec VPN ' + cap.ipsecVpnThroughputGbps + ' Gbps');
   if (cap.maxConcurrentSessions) out.push(cap.maxConcurrentSessions.toLocaleString() + ' sessions');
+  if (cap.maxNewConnectionsPerSec) out.push(cap.maxNewConnectionsPerSec.toLocaleString() + ' conn/s');
   if (cap.maxSiteToSiteVpn) out.push('S2S VPN ' + cap.maxSiteToSiteVpn);
+  if (cap.maxSslVpnUsersBundled) out.push('SSL VPN ' + cap.maxSslVpnUsersBundled + ' 同梱');
   if (cap.maxVlanInterfaces) out.push('VLAN ≤ ' + cap.maxVlanInterfaces);
   const rt: string[] = [];
   if (cap.supportsBgp) rt.push('BGP');
@@ -37,6 +40,7 @@ function switchCapSummary(cap?: SwitchCapabilities): string[] {
   if (cap.maxVlansSupported) out.push('VLAN ≤ ' + cap.maxVlansSupported);
   if (cap.maxMacAddresses) out.push('MAC ' + cap.maxMacAddresses.toLocaleString());
   if (cap.stpVariants?.length) out.push('STP: ' + cap.stpVariants.join('/'));
+  if (cap.maxStpInstances) out.push('STP instances ≤ ' + cap.maxStpInstances);
   if (cap.routingProtocols?.length) out.push('RP: ' + cap.routingProtocols.join('/'));
   if (cap.supportsStackwise && cap.stackwiseBandwidthGbps) {
     out.push('Stack ' + cap.stackwiseBandwidthGbps + ' Gbps');

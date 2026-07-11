@@ -192,6 +192,16 @@ const initial: UIState = {
 
 /* ---- 副作用ヘルパ(reducer 内で呼ぶ純粋なもののみ) ---- */
 
+/* 全機能監査 Medium-14: 1物理ポートは1本のケーブルしか挿さらないため、
+ * 既存リンクのどちらかの端に同じポートが既に使われていないか確認する。 */
+function portInUse(links: Link[], key: string, iface: string): boolean {
+  return links.some(
+    (L) =>
+      (L.a.key === key && L.a.iface === iface) ||
+      (L.b.key === key && L.b.iface === iface),
+  );
+}
+
 function ingest(d: Device, text: string): void {
   d.config = text;
   d.parsed = d.role === 'router' ? parseSonicWall(text) : parseCisco(text);
@@ -266,13 +276,16 @@ function reducer(s: UIState, a: Action): UIState {
       if (cur.key === a.key && cur.iface === a.iface) return { ...s, topoSel: null };
       // 同一機器の別ポート → 選択切替
       if (cur.key === a.key) return { ...s, topoSel: { key: a.key, iface: a.iface } };
-      // 別機器のポート → リンク作成(重複は無視)
+      // 別機器のポート → リンク作成(重複・ポート使い回しは無視)
       const exists = s.links.some(
         (L) =>
           (L.a.key === cur.key && L.a.iface === cur.iface && L.b.key === a.key && L.b.iface === a.iface) ||
           (L.b.key === cur.key && L.b.iface === cur.iface && L.a.key === a.key && L.a.iface === a.iface),
       );
-      const links = exists ? s.links : [...s.links, { a: cur, b: { key: a.key, iface: a.iface } }];
+      /* 全機能監査 Medium-14: 1物理ポートは1本のケーブルしか挿さらないため、
+       * どちらかの端が既存リンクで使用済みなら新規作成を弾く。 */
+      const reused = portInUse(s.links, cur.key, cur.iface) || portInUse(s.links, a.key, a.iface);
+      const links = (exists || reused) ? s.links : [...s.links, { a: cur, b: { key: a.key, iface: a.iface } }];
       return { ...s, links, topoSel: null };
     }
 
@@ -282,7 +295,9 @@ function reducer(s: UIState, a: Action): UIState {
           (L.a.key === a.link.a.key && L.a.iface === a.link.a.iface && L.b.key === a.link.b.key && L.b.iface === a.link.b.iface) ||
           (L.b.key === a.link.a.key && L.b.iface === a.link.a.iface && L.a.key === a.link.b.key && L.a.iface === a.link.b.iface),
       );
-      if (exists) return s;
+      const sameDevice = a.link.a.key === a.link.b.key;
+      const reused = portInUse(s.links, a.link.a.key, a.link.a.iface) || portInUse(s.links, a.link.b.key, a.link.b.iface);
+      if (exists || sameDevice || reused) return s;
       return { ...s, links: [...s.links, a.link] };
     }
     case 'REMOVE_LINK':

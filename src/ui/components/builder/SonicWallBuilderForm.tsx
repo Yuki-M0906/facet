@@ -244,12 +244,18 @@ export function SonicWallBuilderForm({ draft, onChange, capabilities, modelId }:
               <option value="udp">udp</option>
               <option value="icmp">icmp</option>
             </select>
-            <span className="lbl">Port</span>
+            <span className="lbl">From</span>
             <input
               type="text" value={s.from} placeholder="443" className={errCls(`svc.${i}.from`)}
-              onChange={(e) => updateSvcObj(i, { from: e.target.value, to: e.target.value })} style={{ maxWidth: 70 }}
+              onChange={(e) => updateSvcObj(i, { from: e.target.value })} style={{ maxWidth: 70 }}
             />
             {errors[`svc.${i}.from`] && <span className="builder-errmsg">{errors[`svc.${i}.from`]}</span>}
+            <span className="lbl">To</span>
+            <input
+              type="text" value={s.to} placeholder="443(省略時はFromと同一)" className={errCls(`svc.${i}.to`)}
+              onChange={(e) => updateSvcObj(i, { to: e.target.value })} style={{ maxWidth: 70 }}
+            />
+            {errors[`svc.${i}.to`] && <span className="builder-errmsg">{errors[`svc.${i}.to`]}</span>}
             <button type="button" className="x" onClick={() => removeSvcObj(i)} aria-label="サービスオブジェクトを削除">✕</button>
           </div>
         ))}

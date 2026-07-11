@@ -163,13 +163,17 @@ export function verify(state: AppState): VerifyResult {
           'allowed vlan を明示。');
         setPort(d, p.iface, 'lack');
       }
-      if (!c.mode) {
+      if (!c.mode && !c.shutdown) {
         /* Sprint 3 P3-3: switchport mode 未指定時の既定挙動モデル化。
          * 本カタログの全 SKU(Catalyst 1000/2960-X/9200/9300)は DTP 既定モードが
          * dynamic auto(ウェブ調査で確認、docs/PARSER-NOTES.md 参照。旧 2950/3550 等の
          * dynamic desirable とは異なる)。access/trunk 明示が無いのは「機種既定に依存した
          * 不安定な状態」であり、accessVlan/trunkAllowed が設定済みでも未設定でも
-         * 同様に注意喚起する。 */
+         * 同様に注意喚起する。
+         * 全機能監査 Medium-10: このチェックの論拠(対向ポートがtrunk化を要求すると
+         * DTPネゴシエーションでaccessとして動作してしまうリスク)は、リンクが
+         * administratively down の間は成立しない。shutdown 済みポートは対象外にする
+         * (shutdown 自体の lack は上の別チェックで既に検出済み)。 */
         add('L2', 'lack', d.key + ':' + p.iface,
           'switchport mode 未指定(機種既定の dynamic auto として動作)。',
           '本カタログの全 SKU は DTP 既定モードが dynamic auto です。対向ポートが trunk 化を' +
@@ -272,6 +276,11 @@ export function verify(state: AppState): VerifyResult {
         'MTU 不一致(' + ca.mtu + ' ↔ ' + cb.mtu + ')。',
         'MTU差は大きいフレームの破棄を招く。',
         'MTUを一致させる。');
+      /* 全機能監査 Medium-5: 同じ forEach 内の速度/Duplex/EtherChannelモード不一致は
+       * add() 直後に setPort() を呼ぶが、MTU不一致だけこれが抜けていた。findings一覧
+       * には出るのにシャーシ図では該当ポートが緑のまま、という表示の食い違いを修正。 */
+      setPort(da, L.a.iface, 'lack');
+      setPort(db, L.b.iface, 'lack');
     }
     if (ca.channel && cb.channel) {
       const x = ca.channel.mode;
@@ -436,6 +445,25 @@ export function verify(state: AppState): VerifyResult {
   /* ---- L3 ---- */
   const subnets: Subnet[] = buildSubnets(state);
   function isWan(z: string | undefined | null): boolean { return /WAN/i.test(z || ''); }
+  /* 全機能監査 Medium-9: 同一CIDRが異なるVLANに重複割当されている場合、
+   * buildMatrix()のセルキー(cidr単体)・UI(Matrix.tsx/PathTracePanel.tsx)の
+   * React key/<option>のvalueがすべてcidr単体のため、片方のVLANの行が
+   * もう片方に上書きされたり選択不能になったりする。これはVLAN設計ミス
+   * (同一CIDRの二重割当)そのものが根本原因であるため、まずそれ自体を
+   * L3の指摘として明示的に検出する(表示側の衝突を個別に直すよりも、
+   * 根本の誤設定を気づかせる方が実効性が高いため)。 */
+  const cidrGroups: Record<string, Subnet[]> = {};
+  subnets.forEach((s) => { (cidrGroups[s.cidr] ||= []).push(s); });
+  Object.keys(cidrGroups).forEach((cidr) => {
+    const grp = cidrGroups[cidr]!;
+    if (grp.length > 1) {
+      add('L3', 'err',
+        grp.map((s) => s.dev + (s.vlan ? '/VLAN' + s.vlan : '')).join(', '),
+        '同一サブネット ' + cidr + ' が複数箇所(' + grp.map((s) => s.dev + (s.vlan ? ' VLAN' + s.vlan : '')).join(' / ') + ')に重複割当されています。',
+        '同一CIDRの二重割当はIPアドレス設計として不正で、到達性マトリクス・経路トレースの表示も正しく区別できません。',
+        'いずれかのVLAN/インターフェイスに別のサブネットを割り当てる。');
+    }
+  });
   devs.forEach((d) => {
     if (d.role !== 'switch') return;
     const used: Record<string, 1> = {};
@@ -647,6 +675,22 @@ export function verify(state: AppState): VerifyResult {
           'VLAN 数 ' + n + ' が SKU 上限 ' + cap.maxVlansSupported + ' を超過。',
           d.model.id + ' は最大 ' + cap.maxVlansSupported + ' VLAN まで対応(datasheet 公称)。超過すると一部 VLAN が機能しない可能性。',
           '上位機種への置換 / 不要 VLAN の削減 / VLAN を分散。');
+      }
+    }
+    /* STP インスタンス数上限(全機能監査 Medium-13: catalog.ts に既に存在するが
+     * どこからも参照されていなかった maxStpInstances を配線)。PVST/Rapid-PVST
+     * 系は VLAN 毎に1インスタンスを消費するため、VLAN 数がそのままインスタンス数
+     * に等しい。MST は複数 VLAN を少数のインスタンスに束ねるため本チェックの
+     * 対象外(この静的パーサは MST インスタンス構成までは読み取っていない)。 */
+    if (cap.maxStpInstances && cp.vlans && cp.stpMode && /pvst/i.test(cp.stpMode)) {
+      const n = Object.keys(cp.vlans).length;
+      if (n > cap.maxStpInstances) {
+        add('CAP', 'err', d.key,
+          'STP インスタンス数 ' + n + ' が SKU 上限 ' + cap.maxStpInstances + ' を超過。',
+          d.model.id + ' は ' + cp.stpMode + ' で最大 ' + cap.maxStpInstances +
+            ' インスタンスまで対応(datasheet 公称)。PVST/Rapid-PVST は VLAN 毎に' +
+            '1インスタンスを消費するため、VLAN 数がそのままインスタンス数になります。',
+          '上位機種への置換 / 不要 VLAN の削減 / MST への切替を検討。');
       }
     }
     /* SVI 上限 */

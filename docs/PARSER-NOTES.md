@@ -68,6 +68,17 @@ Known gaps / watch-outs:
 - Banner blocks and free-text are skipped on the `!` boundary; multi-line constructs
   outside the patterns above are ignored, not errored.
 - Default admin state: only an explicit `shutdown` marks a port down.
+- **`standby <group> ip <ip>`(全機能監査 Medium-2)**: `ParsedInterface.standby` は
+  単一値(`StandbyConfig | null`)のため、同一インターフェイスに複数の HSRP グループ
+  (負荷分散構成等)がある場合、最後に出現したグループのみが保持され、それ以前の
+  グループ情報はサイレントに失われる。現状 `verify.ts` は `standby` を一切参照
+  しない(検証ルールが無い)ため誤判定には繋がらないが、将来 HSRP 系のルールを
+  追加する際はこの制約を踏まえる(配列化が必要)こと。
+- **VLAN 別 `spanning-tree vlan <list> priority <n>`(全機能監査 Medium-3)**:
+  `stpPriority` はデバイス単位の単一値のため、VLAN 毎に優先度を変える負荷分散
+  構成では最後に出現した VLAN の値のみが `verify.ts` の STP root election
+  (Sprint 4 S4-4)に反映される。per-VLAN root election はモデル化されていない
+  (デバイス単位の簡易モデルのため、これは意図的な簡略化)。
 
 ## SonicWall (`parseSonicWall`) — readable SonicOS CLI text (NOT `.exp`)
 `.exp` exports are obfuscated and are intentionally unsupported. The parser expects a
@@ -82,6 +93,12 @@ Known gaps / watch-outs:
 - Real SonicOS syntax varies by version; the accepted form is a clean superset, not
   byte-exact SonicOS. Document the accepted format for users (the UI says "CLI readable
   text"). If you add real-export parsing, do it behind a clearly separate path.
+- **WAN ping/管理許可の検出(全機能監査 Medium-6)**: `ping.*from\s+wan` /
+  `management.*(from\s+wan|wan.*allow)` は緩い部分一致で、`comment` 行は除外済み
+  (誤検知方向は対応済み)だが、これらの正規表現が実際の SonicOS CLI 構文
+  (`https-management`/`ssh-management`/`ping from WAN` 等の正確な表記)と
+  一致しているかは未検証。見逃し方向(実際の許可設定を検出し損なう)のリスクが
+  残っている可能性があるため、実機/公式リファレンスでの照合が今後の課題。
 - **組み込みアドレスグループ(Sprint 4 S4-3、2026-07-05 対応)**: `"<Zone> Subnets"`
   (例: `"LAN Subnets"`)は `objContains()`(`evalFW.ts`)がゾーンに割り当てられた
   全インターフェイスのサブネットの和集合として動的に解決する。実在する SonicOS の

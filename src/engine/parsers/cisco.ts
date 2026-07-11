@@ -147,6 +147,12 @@ export function parseCisco(text: string): CiscoParsed {
           const val = (cur as unknown as Record<string, unknown>)[k];
           (c as unknown as Record<string, unknown>)[k] = Array.isArray(val) ? val.slice() : val;
         }
+        /* 全機能監査 Medium-4: mkif() は sviVlan を names[0] からのみ計算するため、
+         * `interface range Vlan100 - 105` のような複数SVIをまとめて構築するケースで
+         * 全メンバーが names[0] のVLAN番号をコピーしてしまっていた。flush 時に
+         * 各メンバー自身の名前から改めて算出し直す(SVI以外は null のまま、
+         * 元の挙動を維持)。 */
+        c.sviVlan = (nm.match(/^Vlan(\d+)/i) || [])[1] || null;
         out.interfaces[nm] = c;
       });
       cur = null;

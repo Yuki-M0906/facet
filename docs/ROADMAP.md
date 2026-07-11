@@ -187,8 +187,16 @@ Sprint 5.5 完了後、ユーザ依頼で全機能を対象にした横断監査
       誤読、SonicWall⇄Ciscoモード判定非対称性、starトポロジのポート重複割当、
       FW未解決serviceのno-match化、SEC WANの除外条件、DHCP WAN構成でのL3/FW
       チェック欠落、作成モードのリセット不整合、ドキュメント陳腐化(9件)を修正
-- [ ] 残り44件(Medium 22件・Low 17件・些末5件)は今後の対応候補として記録済み
-      (優先度・対応方針は都度相談)
+- [x] Medium重要度19件(元22件、うち3件はHigh対応時に一緒に修正済み)
+      — **v4.18.1**(2026-07-11)interface range vlan展開・sviVlan付与バグ、
+      SonicWall WAN検知の誤検知・zoneフォールバック・route-policy複数行対応、
+      MTU不一致のsetPort漏れ・shutdown+mode未指定の誤発火・重複CIDR検出、
+      buildMatrix/pathTraceの代表IP統一、maxStpInstances配線、作成モードの
+      各種UI不整合(設定済みポート数・ACL上限・サービスオブジェクトレンジ)、
+      手動トポロジーの確認ダイアログ・ポート重複防止、サンプル読込/クリアの
+      確認ダイアログ、ロックスロットのdisabled化、VERIFICATION-RULES.md訂正
+- [ ] 残り25件(Low 17件・些末5件・Medium一部保留分)は今後の対応候補として
+      記録済み(優先度・対応方針は都度相談)
 
 ### Sprint 6 — ライブコレクタ(真の "theory → live")
 **所要:** 1 週間。

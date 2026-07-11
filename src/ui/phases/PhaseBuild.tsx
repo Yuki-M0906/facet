@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import type {
   BuilderDraft, CiscoBuilderDraft, Device, RouterCapabilities, SonicWallBuilderDraft,
 } from '@engine/types';
+import { isCiscoPortConfigured } from '@engine/index';
 import { useApp, initCiscoDraft, initSonicWallDraft } from '../store';
 import { CiscoBuilderForm } from '../components/builder/CiscoBuilderForm';
 import { SonicWallBuilderForm } from '../components/builder/SonicWallBuilderForm';
@@ -46,7 +47,7 @@ function draftSummary(d: Device, draft: BuilderDraft): string {
     return `IF ${enabled}/${sw.interfaces.length} 有効 · アドレスOBJ ${sw.addressObjects.length} · ルール ${sw.rules.length}`;
   }
   const cs = draft as CiscoBuilderDraft;
-  const configured = cs.ports.filter((p) => p.mode !== null || p.shutdown).length;
+  const configured = cs.ports.filter(isCiscoPortConfigured).length;
   return `VLAN ${cs.vlans.length} · ポート ${configured}/${cs.ports.length} 設定済み`;
 }
 

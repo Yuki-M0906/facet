@@ -35,3 +35,21 @@ export function inSubnet(ip: string, cidr: string): boolean {
   const m = bitsToMaskInt(Number(p[1]));
   return ((ipToInt(ip) & m) >>> 0) === ((net & m) >>> 0);
 }
+
+/**
+ * サブネット内の「代表ホストIP」(ゲートウェイそのものではなく、実際の端末を
+ * 模した1台を代表させる)。全機能監査 Medium-8 対応: 以前は buildMatrix.ts が
+ * ゲートウェイIPそのものを、pathTrace.ts がネットワークアドレス+20オフセットを
+ * それぞれ独立に計算しており、宛先を特定ホストで絞るFWルールがある構成では
+ * マトリクス表示と経路トレース結果が食い違いうる不整合があった。両者から
+ * 共通してこの関数を使うことで統一する。
+ * 小サブネット(/28 以下、ホストビット4未満)ではオフセット20がサブネット範囲を
+ * 越えうるため、その場合はネットワークアドレス+1にフォールバックする。
+ */
+export function representativeHostIp(cidr: string, gw: string): string {
+  const bits = Number(cidr.split('/')[1]);
+  const hostBits = 32 - bits;
+  const offset = hostBits >= 5 ? 20 : 1;
+  const netInt = (ipToInt(gw) & bitsToMaskInt(bits)) >>> 0;
+  return intToIp(netInt + offset);
+}

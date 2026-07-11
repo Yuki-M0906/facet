@@ -9,6 +9,7 @@
  */
 
 import type { ChannelGroupMode, CiscoBuilderDraft, Device, StpVariant, SwitchCapabilities } from '@engine/types';
+import { isCiscoPortConfigured } from '@engine/index';
 import { validateCiscoDraft } from './validation';
 
 interface Props {
@@ -158,7 +159,11 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
 
   const vlanAtLimit = !!(caps?.maxVlansSupported && draft.vlans.length >= caps.maxVlansSupported);
   const sviAtLimit = !!(caps?.maxSviCount && draft.svis.length >= caps.maxSviCount);
-  const configuredPortCount = draft.ports.filter((p) => p.mode !== null || p.shutdown || p.channelGroup).length;
+  /* 全機能監査 Medium-19: VLAN/SVIと同様のリアルタイム上限ガードをACLにも追加。
+   * CAP検証(verify.ts)と同じ「全ACLの行数合計」を上限対象にする。 */
+  const aclEntryCount = draft.acls.reduce((sum, a) => sum + a.lines.length, 0);
+  const aclAtLimit = !!(caps?.maxAclEntries && aclEntryCount >= caps.maxAclEntries);
+  const configuredPortCount = draft.ports.filter(isCiscoPortConfigured).length;
 
   return (
     <div>
@@ -255,10 +260,17 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
                 <button type="button" className="x" onClick={() => removeAclLine(i, j)} aria-label="ACL行を削除">✕</button>
               </div>
             ))}
-            <button className="btn ghost sm builder-add" style={{ marginLeft: 24 }} onClick={() => addAclLine(i)}>+ ルール行追加</button>
+            <button className="btn ghost sm builder-add" style={{ marginLeft: 24 }} onClick={() => addAclLine(i)} disabled={aclAtLimit}>+ ルール行追加</button>
           </div>
         ))}
         <button className="btn ghost sm builder-add" onClick={addAcl}>+ ACL 追加</button>
+        {caps?.maxAclEntries && (
+          <div className={aclAtLimit ? 'builder-warn' : 'builder-summary-bar'}>
+            {aclAtLimit
+              ? <>⚠ ACL 総エントリ数 <b>{aclEntryCount}</b> が {device.model.id} の上限(<b>{caps.maxAclEntries}</b>)に到達しているため、これ以上ルール行を追加できません。</>
+              : <>ACL 総エントリ数 <b>{aclEntryCount}</b> / 上限 {caps.maxAclEntries}</>}
+          </div>
+        )}
       </div>
 
       <div className="builder-section">

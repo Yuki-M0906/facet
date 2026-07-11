@@ -19,9 +19,54 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.18.0';
+export const CURRENT_VERSION = '4.18.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.18.1',
+    date: '2026-07-11',
+    title: '全機能監査 — Medium重要度19件のバグ修正',
+    changes: [
+      '[修正] Cisco: HSRP複数グループ・VLAN別STP priorityの制約をPARSER-NOTES.mdに' +
+        '明記(既知の制約)。`interface range vlan <a> - <b>`(SVI range構文)が' +
+        '展開されずIP情報が迷子になるバグ、複数SVI展開時にsviVlanが全て先頭の値に' +
+        'なるバグを修正。',
+      '[修正] SonicWall: WAN ping/管理許可検出がコメント行でも誤マッチしていたバグ、' +
+        'zone未設定時にip-assignmentの値(モード名)が誤ってゾーン名として採用される' +
+        'バグを修正。route-policyを単一行完結パターンに加え、実際のステートフルな' +
+        '複数行ブロック構文にも対応。',
+      '[修正] verify.ts: MTU不一致findingだけsetPort()が抜けておりシャーシ図の表示が' +
+        '食い違うバグ、shutdown済みポートにも「switchport mode未指定」警告が誤発火' +
+        'するバグを修正。同一CIDRが複数VLANに重複割当された場合のL3検出を追加。',
+      '[修正] buildMatrix.ts/pathTrace.ts: 到達性マトリクスと経路トレースが異なる' +
+        '代表ホストIP(ゲートウェイ vs ネットワーク+20オフセット)を使っており、' +
+        '宛先を特定ホストで絞るFWルールがある構成で判定が食い違いうるバグを修正。' +
+        '共通ヘルパー(`representativeHostIp`)に統一。',
+      '[新機能] catalog.tsに存在するが未配線だったSTPインスタンス数上限' +
+        '(`maxStpInstances`)をCAP検証・機種選定画面の表示に配線。SonicWallルータの' +
+        'Threat Prevention/新規接続数/SSL VPN同梱数の表示も追加。',
+      '[修正] 作成モード: VLAN/SVIと同様のリアルタイム上限ガードをACL総エントリ数にも' +
+        '追加。「設定済みポート数」の判定条件がパーサ/フォーム見出し/進捗表示の' +
+        '3箇所で食い違っていたのを共通ヘルパー(`isCiscoPortConfigured`)に統一。' +
+        'SonicWallサービスオブジェクトのPort入力をFrom/To別々の欄に分離しレンジ型を' +
+        '作成可能に。',
+      '[新機能] トポロジー: 手動配線から star/cascade へ切り替える際、既存の手動配線が' +
+        'あれば確認ダイアログを表示。同一機器の異なるポート同士を接続できてしまう' +
+        'バグ、1物理ポートが複数リンクで重複使用できてしまうバグを修正(SVGクリック' +
+        'UI・セレクタUI両方、および重複防止のreducerレベルでも対応)。',
+      '[修正] コンフィグ投入: 「サンプルコンフィグを読み込む」「クリア」ボタンが' +
+        '投入済みデータを確認なしに上書き/消去していたのを、既存データがある場合のみ' +
+        '確認ダイアログを出すよう修正。ロック中スロットのファイル選択が見た目は' +
+        '無効化されているのに実際には操作できてしまうバグを修正。',
+      '[修正] docs/VERIFICATION-RULES.mdのshutdown検知範囲・シャドウルール判定基準の' +
+        '記述を実装に合わせて訂正。',
+      '本対応は全機能監査(v4.17.2のHighに続く)のMedium重要度19件に対応したもの' +
+        '(元の22件からうち3件はHigh対応時に一緒に修正済み)。' +
+        '回帰確認: 新規13テストケース追加・既存含め全156テストPASS、型チェック・' +
+        'ビルド成功、ブラウザでの動作確認(手動配線の確認ダイアログ・ポート重複防止・' +
+        'サンプル読込確認・ロックスロット無効化・サービスオブジェクトレンジ生成)実施。',
+    ],
+  },
   {
     version: '4.18.0',
     date: '2026-07-11',

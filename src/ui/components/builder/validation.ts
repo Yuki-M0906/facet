@@ -196,6 +196,12 @@ export function validateSonicWallDraft(draft: SonicWallBuilderDraft): ErrorMap {
   draft.serviceObjects.forEach((s, i) => {
     if (!isNonEmpty(s.name)) errors[`svc.${i}.name`] = '名前を入力してください';
     if (!isValidPort(s.from)) errors[`svc.${i}.from`] = 'ポート番号は 1〜65535';
+    /* 全機能監査 Medium-17: from/to を別々の入力欄に分離したのに合わせて to も検証。
+     * to が空なら from と同一(単一ポート)とみなし、from を入力していれば OK。 */
+    if (isNonEmpty(s.to) && !isValidPort(s.to)) errors[`svc.${i}.to`] = 'ポート番号は 1〜65535';
+    if (isNonEmpty(s.to) && isValidPort(s.from) && isValidPort(s.to) && Number(s.to) < Number(s.from)) {
+      errors[`svc.${i}.to`] = 'To は From 以上にしてください';
+    }
   });
 
   draft.rules.forEach((r, i) => {

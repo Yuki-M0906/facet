@@ -6,7 +6,7 @@
 
 import { buildSubnets } from './buildSubnets';
 import { evalFW, objContains } from './evalFW';
-import { bitsToMaskInt, intToIp, ipToInt } from './ip';
+import { intToIp, ipToInt, representativeHostIp } from './ip';
 import type { AppState, NatPolicy, PathHop, PathTraceResult, SonicWallParsed } from './types';
 
 /* ---- 該当 NAT ポリシーのマッチング(Sprint 4 S4-2) ----
@@ -83,7 +83,10 @@ export function pathTrace(
       return finalize(hops, 'ok', '同一サブネット内 — L2 で完結(ルータ・FW は通らない)');
     }
     dstZone = dst.zone || 'LAN';
-    dstIp = intToIp((ipToInt(dst.gw) & bitsToMaskInt(Number(dst.cidr.split('/')[1]))) + 20);
+    /* 全機能監査 Medium-8: buildMatrix.ts と共通の代表ホストIP算出ロジックを使う
+     * (以前はここだけ独自の +20 オフセット計算をしており、buildMatrix.ts 側の
+     * ゲートウェイIPそのものを使う実装と食い違いうる不整合があった)。 */
+    dstIp = representativeHostIp(dst.cidr, dst.gw);
   }
 
   /* L3 経路 */
