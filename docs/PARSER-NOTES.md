@@ -93,9 +93,10 @@ Known gaps / watch-outs:
 - Real SonicOS syntax varies by version; the accepted form is a clean superset, not
   byte-exact SonicOS. Document the accepted format for users (the UI says "CLI readable
   text"). If you add real-export parsing, do it behind a clearly separate path.
-- **WAN ping/管理許可の検出(全機能監査 Medium-6)**: `ping.*from\s+wan` /
-  `management.*(from\s+wan|wan.*allow)` は緩い部分一致で、`comment` 行は除外済み
-  (誤検知方向は対応済み)だが、これらの正規表現が実際の SonicOS CLI 構文
+- **WAN ping/管理許可の検出(全機能監査 Medium-6、再調査で `!`/`#` 行も除外に拡張)**:
+  `ping.*from\s+wan` / `management.*(from\s+wan|wan.*allow)` は緩い部分一致で、
+  `comment` 行・`!`/`#` で始まる行(cisco.ts の慣習に合わせた自由記述の注釈)は
+  除外済み(誤検知方向は対応済み)だが、これらの正規表現が実際の SonicOS CLI 構文
   (`https-management`/`ssh-management`/`ping from WAN` 等の正確な表記)と
   一致しているかは未検証。見逃し方向(実際の許可設定を検出し損なう)のリスクが
   残っている可能性があるため、実機/公式リファレンスでの照合が今後の課題。

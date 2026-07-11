@@ -32,14 +32,14 @@ export function Matrix({ matrix }: Props) {
       <table className="mx">
         <thead>
           <tr>
-            <th>from \ to</th>
-            {subs.map((d) => <th key={d.cidr + '|t'}>{label(d)}</th>)}
+            <th scope="col">from \ to</th>
+            {subs.map((d) => <th key={d.cidr + '|t'} scope="col">{label(d)}</th>)}
           </tr>
         </thead>
         <tbody>
           {subs.map((s) => (
             <tr key={s.cidr + '|s'}>
-              <td className="src">{label(s)}</td>
+              <th scope="row" className="src">{label(s)}</th>
               {subs.map((d) => {
                 const c = matrix.cells[s.cidr]?.[d.cidr];
                 const { ch, cls } = c ? sym(c) : { ch: '—', cls: 'cell-self' };

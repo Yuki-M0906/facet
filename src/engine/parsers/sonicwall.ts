@@ -7,7 +7,7 @@
  * .exp(難読化バイナリ)は意図的にサポートしない。
  */
 
-import { expandVlans } from '../canonIf';
+import { expandVlans, uniq } from '../canonIf';
 import { subnetOf } from '../ip';
 import type { AccessRule, NatPolicy, ParseCoverage, ParsedInterface, SonicWallParsed } from '../types';
 
@@ -114,8 +114,15 @@ export function parseSonicWall(text: string): SonicWallParsed {
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^service-object\s+(\S+)\s+(\S+)\s+(\d+)(?:\s*-\s*(\d+))?/i))) {
-        out.svc[m[1]!] = { proto: m[2]!, from: Number(m[3]), to: m[4] ? Number(m[4]) : Number(m[3]) };
+      if ((m = t.match(/^service-object\s+(\S+)\s+(\S+)(?:\s+(\d+)(?:\s*-\s*(\d+))?)?/i))) {
+        /* ポート/タイプ番号が無い行(例: `service-object svc-icmp icmp`、
+         * ICMPやプロトコル丸ごとのオブジェクト)は from/to を null(ワイルドカード)
+         * として扱う。svcMatch は既に null をワイルドカードとして処理する。 */
+        out.svc[m[1]!] = {
+          proto: m[2]!,
+          from: m[3] ? Number(m[3]) : null,
+          to: m[3] ? (m[4] ? Number(m[4]) : Number(m[3])) : null,
+        };
         recognized = true;
         break matchLine;
       }
@@ -126,8 +133,11 @@ export function parseSonicWall(text: string): SonicWallParsed {
         break matchLine;
       }
       if (nat) {
-        if ((m = t.match(/^original-source\s+(\S+)/i))) { nat.orig = m[1]!; recognized = true; }
-        else if ((m = t.match(/^translated-source\s+(\S+)/i))) { nat.trans = m[1]!; recognized = true; }
+        /* address-object 名にはスペースを含むものがある(組み込みグループの
+         * "LAN Subnets" 等)。\S+ だと1トークン目で切れてしまうため行末までを
+         * 捕捉する。 */
+        if ((m = t.match(/^original-source\s+(.+)/i))) { nat.orig = m[1]!.trim(); recognized = true; }
+        else if ((m = t.match(/^translated-source\s+(.+)/i))) { nat.trans = m[1]!.trim(); recognized = true; }
         else if ((m = t.match(/^outbound-interface\s+(\S+)/i))) { nat.iface = m[1]!; recognized = true; }
         if (/^(end|exit)\s*$/i.test(t) || t === '') { flushNat(); recognized = true; }
         break matchLine;
@@ -159,8 +169,17 @@ export function parseSonicWall(text: string): SonicWallParsed {
          * だった。単一行完結パターン(後方互換)も引き続き受け付ける。 */
         flushAll();
         route = { dst: null, mask: null, nh: null };
-        const inline = t.match(/^route-?policy.*?dest(?:ination)?\s+([\d.]+)\s+([\d.]+).*?gateway\s+([\d.]+)/i);
-        if (inline) { route.dst = inline[1]!; route.mask = inline[2]!; route.nh = inline[3]!; }
+        /* destination/gateway の記述順序はどちらも許容する(実機出力は
+         * destination優先が一般的だが、手書きコンフィグでは逆順もありうる)。 */
+        const destFirst = t.match(/^route-?policy.*?dest(?:ination)?\s+([\d.]+)\s+([\d.]+).*?gateway\s+([\d.]+)/i);
+        const gwFirst = !destFirst
+          && t.match(/^route-?policy.*?gateway\s+([\d.]+).*?dest(?:ination)?\s+([\d.]+)\s+([\d.]+)/i);
+        if (destFirst) { route.dst = destFirst[1]!; route.mask = destFirst[2]!; route.nh = destFirst[3]!; }
+        else if (gwFirst) { route.nh = gwFirst[1]!; route.dst = gwFirst[2]!; route.mask = gwFirst[3]!; }
+        /* 単一行で dst/mask/nh が全て揃った場合は即座にflushする。揃わないまま
+         * route を開いたまま次行へ進めると、後続の無関係な行(interfaceブロック等)
+         * まで `if (route)` 分岐に吸い込まれてしまう(end/exit/空行が来るまで)。 */
+        if (route.dst && route.mask && route.nh) flushRoute();
         recognized = true;
         break matchLine;
       }
@@ -178,8 +197,9 @@ export function parseSonicWall(text: string): SonicWallParsed {
        * コメント行でも誤マッチしていた。コメント行(`comment ...`)を対象外にする。
        * (実際のSonicOS CLI構文自体との厳密な照合は別途要検証、既知の制約として
        * PARSER-NOTES.md に記載する。) */
-      if (!/^comment\b/i.test(t) && /ping.*from\s+wan/i.test(t)) { out.sec.pingWanAllow = true; recognized = true; }
-      if (!/^comment\b/i.test(t) && /management.*(from\s+wan|wan.*allow)/i.test(t)) { out.sec.mgmtWanAllow = true; recognized = true; }
+      const isCommentLine = /^(comment\b|!|#)/i.test(t);
+      if (!isCommentLine && /ping.*from\s+wan/i.test(t)) { out.sec.pingWanAllow = true; recognized = true; }
+      if (!isCommentLine && /management.*(from\s+wan|wan.*allow)/i.test(t)) { out.sec.mgmtWanAllow = true; recognized = true; }
       if ((m = t.match(/^interface\s+(X\d+(?::?V?\d+)?)/i))) {
         flushAll();
         const name = m[1]!.replace(/:?V(\d+)/i, ':V$1');
@@ -206,7 +226,10 @@ export function parseSonicWall(text: string): SonicWallParsed {
         cur.mask = m[2]!;
         recognized = true;
       } else if ((m = t.match(/^vlan\s+([\d,\-]+)/i))) {
-        cur.trunkAllowed = cur.trunkAllowed.concat(expandVlans(m[1]!));
+        /* mkif() が interface 名の :V<n> サフィックスから既に trunkAllowed=[vlanTag]
+         * を種付けしているため、同じVLANを指す本文中の `vlan <n>` 行と単純concatすると
+         * 重複が残る(uniqで防止)。 */
+        cur.trunkAllowed = uniq(cur.trunkAllowed.concat(expandVlans(m[1]!)));
         cur.vlanTag = cur.vlanTag || expandVlans(m[1]!)[0] || null;
         recognized = true;
       } else if ((m = t.match(/^comment\s+(.+)/i))) {

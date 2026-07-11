@@ -146,7 +146,11 @@ export function verify(state: AppState): VerifyResult {
           'no shutdown を投入。');
         setPort(d, p.iface, 'lack');
       }
-      if (c.mode === 'access' && c.accessVlan && !vlans[c.accessVlan]) {
+      if (c.mode === 'access' && c.accessVlan && c.accessVlan !== '1' && !vlans[c.accessVlan]) {
+        /* VLAN 1 は実機の既定VLANとして常に存在し、running-config に明示的な
+         * `vlan 1` ブロックが無いのが通常(むしろ書かれていない方が普通)。
+         * vlans{} は明示行からのみ構築されるため、除外しないとVLAN1に割り当てた
+         * 極めて標準的な構成が誤って「未定義」判定になっていた。 */
         add('L2', 'lack', d.key + ':' + p.iface,
           'Access VLAN ' + c.accessVlan + ' が未定義。',
           'VLAN DB に無いVLANは通信に使えません。',
@@ -538,6 +542,11 @@ export function verify(state: AppState): VerifyResult {
     const hasDhcpWan = Object.keys(ifs).some((k) => isWan(ifs[k]!.zone) && !ifs[k]!.ip);
     if (hasDhcpWan) return;
     routes.forEach((rt) => {
+      /* next-hop がインターフェイス名(例: `ip route 0.0.0.0 0.0.0.0 Vlan99`)の
+       * 場合、それはIPアドレスではないため「既知のサブネットに属するか」という
+       * 判定自体が無意味(送出インターフェイス指定は定義上ローカルに有効)。
+       * IPv4 リテラルの形をしている場合のみ到達性チェックを行う。 */
+      if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(rt.nh)) return;
       const reachable = subnets.some((s) => inSubnet(rt.nh, s.cidr));
       if (!reachable) {
         add('L3', 'lack', d.key,
@@ -629,7 +638,11 @@ export function verify(state: AppState): VerifyResult {
         return;
       }
       if (isWan(rl.to)) return;
-      if (rl.from.toUpperCase() === rl.to.toUpperCase()) return;
+      /* 全機能監査再調査: evalFW() はゾーン値 'ANY' を全ゾーンにマッチする
+       * ワイルドカードとして扱うが、ここではその特別扱いが無く、from===to==='ANY'
+       * (最も広範な全許可)まで「同一ゾーンの無害なルール」として素通りしていた。
+       * ANY はワイルドカードとして扱い、除外対象から外す。 */
+      if (rl.from.toUpperCase() === rl.to.toUpperCase() && rl.from.toUpperCase() !== 'ANY') return;
       add('SEC', 'lack',
         'ルール #' + (i + 1) + ' ' + rl.from + '→' + rl.to,
         'any/any/any の許可ルールです。',
@@ -637,10 +650,16 @@ export function verify(state: AppState): VerifyResult {
         '必要なサービス・宛先に絞る。');
     });
     const seen: Record<string, { broad: true }> = {};
+    let seenAnyAny = false;
     rules.forEach((rl, i) => {
       if (rl.enabled === false) return;
-      const key = rl.from.toUpperCase() + '>' + rl.to.toUpperCase();
-      if (seen[key] && seen[key]!.broad) {
+      const fromU = rl.from.toUpperCase();
+      const toU = rl.to.toUpperCase();
+      const key = fromU + '>' + toU;
+      /* ANY→ANY の包括ルールは evalFW() 上、後続のどの from/to 組み合わせよりも
+       * 先にマッチするため、文字列完全一致の key だけでなく seenAnyAny でも
+       * シャドウ判定する。 */
+      if (seenAnyAny || (seen[key] && seen[key]!.broad)) {
         add('SEC', 'lack',
           'ルール #' + (i + 1) + ' ' + rl.from + '→' + rl.to,
           'より上位の包括ルールにシャドウされています。',
@@ -649,6 +668,7 @@ export function verify(state: AppState): VerifyResult {
       }
       if (/^any$/i.test(rl.src) && /^any$/i.test(rl.dst) && /^any$/i.test(rl.service)) {
         seen[key] = { broad: true };
+        if (fromU === 'ANY' && toU === 'ANY') seenAnyAny = true;
       }
     });
   }

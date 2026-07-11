@@ -12,19 +12,22 @@ import { useApp } from '../store';
 export function PhaseQuick() {
   const { state, dispatch } = useApp();
   const [error, setError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
   const models = state.quickRole === 'router' ? CATALOG.router : CATALOG.switch;
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    setReading(true);
     const r = new FileReader();
     r.onload = () => {
+      setReading(false);
       const text = String(r.result || '');
       if (!text.trim()) { setError('ファイルが空です。中身のあるコンフィグファイルを選択してください。'); return; }
       setError(null);
       dispatch({ type: 'QUICK_VERIFY', text });
     };
-    r.onerror = () => setError('ファイルの読み込みに失敗しました。');
+    r.onerror = () => { setReading(false); setError('ファイルの読み込みに失敗しました。'); };
     r.readAsText(f);
     e.target.value = '';
   }
@@ -45,12 +48,14 @@ export function PhaseQuick() {
         <div className="toggle" style={{ marginTop: 4 }}>
           <button
             className={state.quickRole === 'router' ? 'on' : ''}
+            aria-pressed={state.quickRole === 'router'}
             onClick={() => dispatch({ type: 'SET_QUICK_ROLE', role: 'router' })}
           >
             ルータ(SonicWall)
           </button>
           <button
             className={state.quickRole === 'switch' ? 'on' : ''}
+            aria-pressed={state.quickRole === 'switch'}
             onClick={() => dispatch({ type: 'SET_QUICK_ROLE', role: 'switch' })}
           >
             スイッチ(Cisco)
@@ -83,11 +88,13 @@ export function PhaseQuick() {
             <div className="n">{state.quickRole === 'router' ? 'ルータ' : 'スイッチ'} — {models.filter((m) => m.id === state.quickModelId)[0]?.name}</div>
             <div className="s">アップロードすると即座に検証します</div>
           </div>
-          <label className="btn ghost">
+          {reading && <span className="builder-generate-status pending">読み込み中…</span>}
+          <label className="btn ghost" aria-disabled={reading}>
             <input
               type="file"
-              accept=".txt,.cfg,.conf,.log,.exp"
+              accept=".txt,.cfg,.conf,.log"
               onChange={handleFile}
+              disabled={reading}
             />
             ファイル選択
           </label>

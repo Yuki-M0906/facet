@@ -28,8 +28,9 @@ function buildOptions(devices: Device[]): Option[] {
 }
 
 /* 全機能監査 Medium-14: 既存の links のどちらかの端に同じポートが
- * 既に使われていないか確認する(1物理ポートは1本のケーブルしか挿さらない)。 */
-function portInUse(links: Link[], key: string, iface: string): boolean {
+ * 既に使われていないか確認する(1物理ポートは1本のケーブルしか挿さらない)。
+ * PhaseTopology.tsx のフェイスプレートクリック経路でも同じ判定が必要なため export する。 */
+export function portInUse(links: Link[], key: string, iface: string): boolean {
   return links.some(
     (L) =>
       (L.a.key === key && L.a.iface === iface) ||

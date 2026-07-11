@@ -378,6 +378,13 @@ function reducer(s: UIState, a: Action): UIState {
     }
 
     case 'SET_BUILDER_DRAFT': {
+      /* 全機能監査再調査: 「すべて生成」クリック後にフォームを編集しても
+       * device.config は古いまま残り、「生成済み ✓」バッジと「検証を実行」ゲートが
+       * 緑のままだった(RESET_DEVICE_DRAFT の High-8 対応と同型のバグが、明示的な
+       * リセットを経ない通常のフォーム編集経路でも成立していた)。編集の都度、
+       * 対象 device の生成済みコンフィグを clearDevice() で無効化し、再生成を促す。 */
+      const dev = [s.router, ...s.switches].filter((d): d is Device => !!d).find((d) => d.key === a.key);
+      if (dev) clearDevice(dev);
       return { ...s, builderDrafts: { ...s.builderDrafts, [a.key]: a.draft } };
     }
 

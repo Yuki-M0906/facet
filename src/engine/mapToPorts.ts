@@ -70,6 +70,14 @@ export function mapToPorts(dev: Device): void {
       if ((!c.trunkAllowed || !c.trunkAllowed.length) && src.trunkAllowed && src.trunkAllowed.length) {
         c.trunkAllowed = src.trunkAllowed.slice();
       }
+      /* 全機能監査再調査: trunkAllowed が空配列のまま(`vlan none` で明示的に
+       * 全遮断)のケースでは上の条件が成立せず、trunkAllowedExplicit だけが
+       * 継承リストから漏れていた。結果、メンバー側は「未指定(全許可扱い)」の
+       * lack 警告が誤って出ていた(実際は明示的な全VLAN遮断)。 */
+      if (!c.trunkAllowed.length && !c.trunkAllowedExplicit && src.trunkAllowedExplicit) {
+        c.trunkAllowedExplicit = true;
+      }
+      if (!c.mtu && src.mtu) c.mtu = src.mtu;
       if (!c.ip && src.ip) { c.ip = src.ip; c.mask = src.mask; }
       if (!c.description && src.description) c.description = src.description;
     });

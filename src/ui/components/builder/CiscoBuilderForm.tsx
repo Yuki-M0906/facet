@@ -53,7 +53,26 @@ export function CiscoBuilderForm({ device, draft, onChange }: Props) {
     update({ vlans });
   }
   function removeVlan(i: number) {
-    update({ vlans: draft.vlans.filter((_, idx) => idx !== i) });
+    const removedId = draft.vlans[i]?.id;
+    update({
+      vlans: draft.vlans.filter((_, idx) => idx !== i),
+      /* 削除したVLANを参照しているポート/Port-channel/SVIも一緒にクリアする
+       * (removeAcl/removePortChannel と同じ考え方)。放置すると存在しないVLANへの
+       * 参照が生成テキストに残り、静的に矛盾したコンフィグが verify() を素通りする。 */
+      ports: draft.ports.map((p) => ({
+        ...p,
+        accessVlan: p.accessVlan === removedId ? null : p.accessVlan,
+        trunkNative: p.trunkNative === removedId ? null : p.trunkNative,
+        trunkAllowed: p.trunkAllowed.filter((v) => v !== removedId),
+      })),
+      portChannels: draft.portChannels.map((c) => ({
+        ...c,
+        accessVlan: c.accessVlan === removedId ? null : c.accessVlan,
+        trunkNative: c.trunkNative === removedId ? null : c.trunkNative,
+        trunkAllowed: c.trunkAllowed.filter((v) => v !== removedId),
+      })),
+      svis: draft.svis.filter((s) => s.vlan !== removedId),
+    });
   }
 
   function updatePort(i: number, patch: Partial<CiscoBuilderDraft['ports'][number]>) {

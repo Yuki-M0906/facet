@@ -8,7 +8,7 @@
  */
 
 import { type KeyboardEvent } from 'react';
-import type { Device, PortStatus, RuntimePort } from '@engine/types';
+import type { Device, Link, PortStatus, RuntimePort } from '@engine/types';
 
 const PW = 30, PH = 30, GAP = 6, PAD = 4;
 
@@ -25,6 +25,9 @@ interface Props {
   onPortHover?: (device: Device, port: RuntimePort, e: PortHoverPos) => void;
   onPortLeave?: () => void;
   topoSel?: { key: string; iface: string } | null;
+  /** 手動トポロジーモードで「既に配線済みのポート」を強調する(.port.topo-linked、
+   * .topo-selected の隣接状態)。渡さない場合は何も強調しない(検証結果画面など)。 */
+  links?: Link[];
 }
 
 const STATUS_LABEL: Record<PortStatus, string> = {
@@ -73,7 +76,7 @@ function layoutPorts(d: Device): { ports: PortBoxLayout[]; cols: number; rows: n
   };
 }
 
-export function Faceplate({ device, annot, onPortClick, onPortHover, onPortLeave, topoSel }: Props) {
+export function Faceplate({ device, annot, onPortClick, onPortHover, onPortLeave, topoSel, links }: Props) {
   const tag = device.role === 'switch' ? 'SW · ' + device.unit : 'ROUTER';
   const { ports, cols, rows } = layoutPorts(device);
   const W = PAD * 2 + cols * (PW + GAP) - GAP + 10;
@@ -102,7 +105,9 @@ export function Faceplate({ device, annot, onPortClick, onPortHover, onPortLeave
               const stroke = annot ? sStroke(p.status) : 'rgba(201,168,106,.28)';
               const isSfp = p.type !== 'rj45';
               const isSelected = topoSel && topoSel.key === device.key && topoSel.iface === p.iface;
-              const className = 'port' + (isSelected ? ' topo-selected' : '');
+              const isLinked = !isSelected && !!links && links.some((L) =>
+                (L.a.key === device.key && L.a.iface === p.iface) || (L.b.key === device.key && L.b.iface === p.iface));
+              const className = 'port' + (isSelected ? ' topo-selected' : isLinked ? ' topo-linked' : '');
               const focusable = isInteractive || !!onPortHover;
               const focusPos = (e: { currentTarget: SVGGElement }): PortHoverPos => {
                 const rect = e.currentTarget.getBoundingClientRect();

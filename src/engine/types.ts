@@ -237,8 +237,11 @@ export type AddressObject =
 
 export interface ServiceObject {
   proto: string;
-  from: number;
-  to: number;
+  /* protocol-only オブジェクト(例: `service-object svc-icmp icmp`、ポート番号無し)
+   * では null。resolveSvc/svcMatch は既に number | null(ワイルドカード)を
+   * 前提にしているため、この型もそれに合わせる。 */
+  from: number | null;
+  to: number | null;
 }
 
 export interface AccessRule {

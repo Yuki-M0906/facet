@@ -227,6 +227,14 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .analyzing{text-align:center;padding:60px 20px}
 .analyzing .shim{font-family:var(--serif);font-size:30px;letter-spacing:.3em;background:linear-gradient(90deg,var(--faint) 30%,var(--gold-lt) 50%,var(--faint) 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 1.8s linear infinite}
 @keyframes shim{to{background-position:-200% center}}.analyzing p{color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.2em;margin-top:16px;text-transform:uppercase}
+/* 全機能監査再調査(Phase間遷移・ローディング状態の統一): 視差効果を減らす設定時は
+ * .phase の rise、.analyzing .shim のシマー、.complete .gem のスピンをすべて止める。
+ * .phase は全フェーズ共通のため、ここ1箇所で全画面のモーション設定に対応できる。 */
+@media (prefers-reduced-motion: reduce){
+  .phase{animation:none}
+  .analyzing .shim{animation:none}
+  .complete .gem{animation:none}
+}
 .note{font-size:12px;color:var(--faint);font-style:italic;font-family:var(--serif);margin-top:16px;line-height:1.6}.note::before{content:"\203B "}
 .hidden{display:none!important}
 .disclaimer{font-size:12px;color:var(--muted);background:rgba(217,166,72,.06);border:1px solid rgba(217,166,72,.22);border-radius:10px;padding:13px 16px;margin-bottom:22px;line-height:1.55}

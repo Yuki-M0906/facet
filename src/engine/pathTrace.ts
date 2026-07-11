@@ -6,7 +6,7 @@
 
 import { buildSubnets } from './buildSubnets';
 import { evalFW, objContains } from './evalFW';
-import { intToIp, ipToInt, representativeHostIp } from './ip';
+import { representativeHostIp } from './ip';
 import type { AppState, NatPolicy, PathHop, PathTraceResult, SonicWallParsed } from './types';
 
 /* ---- 該当 NAT ポリシーのマッチング(Sprint 4 S4-2) ----
@@ -68,7 +68,11 @@ export function pathTrace(
     dstZone = 'WAN';
     wsub = subs.filter((s) => /WAN/i.test(s.zone))[0];
     if (!wsub) return finalize(hops, 'deny', 'WAN インターフェイスが検出されません');
-    dstIp = intToIp(ipToInt(wsub.gw) + 1);
+    /* 全機能監査再調査: 以前はここだけ生の +1 演算(サブネット境界の考慮なし)を
+     * しており、WANゲートウェイIPの末尾が.255付近だと隣接サブネットへ
+     * ロールオーバーしうる不整合があった(Medium-8で統一したLAN側と非対称)。
+     * LAN側と同じ representativeHostIp() を使う。 */
+    dstIp = representativeHostIp(wsub.cidr, wsub.gw);
   } else {
     dst = subs.filter((s) => s.cidr === dstSpec)[0];
     if (!dst) return finalize(hops, 'deny', '宛先サブネットが見つかりません');

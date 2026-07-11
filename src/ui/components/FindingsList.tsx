@@ -34,13 +34,14 @@ export function FindingsList({ result, filter, onFilter }: Props) {
   return (
     <>
       <div className="filterbar">
-        <button className={filter === 'all' ? 'on' : ''} onClick={() => onFilter('all')}>
+        <button className={filter === 'all' ? 'on' : ''} aria-pressed={filter === 'all'} onClick={() => onFilter('all')}>
           すべて {counts.all}
         </button>
         {(Object.keys(CB) as FindingCategory[]).map((c) => (
           <button
             key={c}
             className={filter === c ? 'on' : ''}
+            aria-pressed={filter === c}
             onClick={() => onFilter(c)}
           >
             {CB[c]} {counts[c]}
