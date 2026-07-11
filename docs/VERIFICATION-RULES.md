@@ -31,7 +31,11 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
 
 ## L2 — VLAN / Trunk
 - Access port references a VLAN not in the VLAN DB → lack (port → lack)
+  (VLAN 1 は実機の既定 VLAN として常に存在するため除外。全機能監査再調査対応)
 - Trunk with no `allowed vlan` (implicit all) → lack
+  (`switchport trunk allowed vlan none`/全 VLAN 除去による明示的な空リストは対象外。
+  parseCisco が `trunkAllowedExplicit` フラグで意図的な全遮断と未指定を区別する
+  — High-1 監査対応)
 - `switchport mode` unset → lack(機種既定の DTP `dynamic auto` として動作。VLAN 設定
   の有無を問わず発火。Sprint 3 P3-3 で「VLAN 設定がある場合のみ」から拡張)
 - shutdown port(スイッチの全ポート対象。リンク宣言の有無は問わない — 未使用の

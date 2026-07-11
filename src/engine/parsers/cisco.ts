@@ -7,7 +7,7 @@
  */
 
 import { expandIfRange, expandVlans } from '../canonIf';
-import { subnetOf } from '../ip';
+import { bitsToMaskInt, intToIp, subnetOf } from '../ip';
 import type { AclLine, CiscoParsed, ParseCoverage, ParsedInterface, PlatformHint, PlatformSignal } from '../types';
 
 interface CurIf extends Omit<ParsedInterface, 'name'> {
@@ -34,7 +34,7 @@ const NXOS_PATTERNS: Array<{ signal: PlatformSignal; re: RegExp }> = [
   { signal: 'nxos-boot', re: /^boot\s+(nxos|kickstart)\s+bootflash:/ },
 ];
 const IOSXE_PATTERNS: Array<{ signal: PlatformSignal; re: RegExp }> = [
-  { signal: 'iosxe-install-mode', re: /^boot\s+system\s+(flash|bootflash):\S*packages\.conf\s*$/i },
+  { signal: 'iosxe-install-mode', re: /^boot\s+system\s+(?:switch\s+(?:all|\d+)\s+)?(flash|bootflash):\S*packages\.conf\s*$/i },
   { signal: 'iosxe-license-tier', re: /^license\s+boot\s+level\s+(network-essentials|network-advantage|dna-essentials|dna-advantage)\b/i },
   { signal: 'iosxe-platform-fed', re: /^platform\s+(punt-keepalive|qos|ptp|sudi|tcam-limit)\b/i },
 ];
@@ -173,7 +173,10 @@ export function parseCisco(text: string): CiscoParsed {
       continue;
     }
     if ((m = t.match(/^ip\s+default-gateway\s+([\d.]+)/))) { out.defaultGw = m[1]!; continue; }
-    if ((m = t.match(/^ip\s+route\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/))) {
+    if ((m = t.match(/^ip\s+route\s+([\d.]+)\s+([\d.]+)\s+(\S+)/))) {
+      /* next-hop はIPアドレスの他、`ip route 0.0.0.0 0.0.0.0 Vlan99` のような
+       * 送出インターフェイス名も許容される(IOS仕様)。nh はそのまま格納し、
+       * サブネット所属チェック(verify.ts S4-2)側でIP形式か判定して分岐する。 */
       out.routes.push({ dst: m[1]!, mask: m[2]!, nh: m[3]! });
       continue;
     }
@@ -186,7 +189,7 @@ export function parseCisco(text: string): CiscoParsed {
       continue;
     }
     if ((m = t.match(/^transport\s+input\s+(.+)/))) {
-      if (/telnet/i.test(m[1]!)) out.sec.telnet = true;
+      if (/telnet/i.test(m[1]!) || /(^|\s)all(\s|$)/i.test(m[1]!)) out.sec.telnet = true;
       if (/^ssh\s*$/i.test(m[1]!.trim())) out.sec.sshOnly = true;
       continue;
     }
@@ -202,7 +205,7 @@ export function parseCisco(text: string): CiscoParsed {
       out.acls[id]!.push({ action: m[2]!, rest: m[3]! });
       continue;
     }
-    if (curAcl && (m = t.match(/^(permit|deny)\s+(.+)/))) {
+    if (curAcl && (m = t.match(/^(?:\d+\s+)?(permit|deny)\s+(.+)/))) {
       const acl: AclLine[] = out.acls[curAcl] || [];
       acl.push({ action: m[1]!, rest: m[2]! });
       out.acls[curAcl] = acl;
@@ -218,6 +221,10 @@ export function parseCisco(text: string): CiscoParsed {
     if (out._dhcp) {
       if ((m = t.match(/^network\s+([\d.]+)\s+([\d.]+)/))) {
         out.dhcp[out._dhcp]!.network = subnetOf(m[1]!, m[2]!);
+        continue;
+      }
+      if ((m = t.match(/^network\s+([\d.]+)\s*\/\s*(\d{1,2})/))) {
+        out.dhcp[out._dhcp]!.network = subnetOf(m[1]!, intToIp(bitsToMaskInt(Number(m[2]!))));
         continue;
       }
       if ((m = t.match(/^default-router\s+([\d.]+)/))) {
@@ -272,6 +279,12 @@ export function parseCisco(text: string): CiscoParsed {
     if ((m = t.match(/^description\s+(.+)/))) cur.description = m[1]!;
     else if (/switchport mode access/.test(t)) cur.mode = 'access';
     else if (/switchport mode trunk/.test(t)) cur.mode = 'trunk';
+    else if (/switchport mode dynamic (auto|desirable)/.test(t)) {
+      /* DTP ネゴシエーション。結果が access/trunk のどちらになるかは相手機器の
+       * 設定次第で静的コンフィグからは決定できないため mode は未設定のまま
+       * (verify.ts の「mode 未指定」警告は引き続き出る)。ここで行自体は
+       * 認識済み扱いにし、有効な設定行を unrecognized に積まないようにする。 */
+    }
     else if ((m = t.match(/switchport access vlan\s+(\d+)/))) cur.accessVlan = m[1]!;
     else if ((m = t.match(/switchport trunk native vlan\s+(\d+)/))) cur.trunkNative = m[1]!;
     else if (/switchport trunk allowed vlan\s+none\b/.test(t)) {
@@ -285,8 +298,8 @@ export function parseCisco(text: string): CiscoParsed {
     } else if ((m = t.match(/switchport trunk allowed vlan\s+(?:add\s+)?([\d,\-]+)/))) {
       cur.trunkAllowed = cur.trunkAllowed.concat(expandVlans(m[1]!));
       cur.trunkAllowedExplicit = true;
-    } else if ((m = t.match(/channel-group\s+(\d+)\s+mode\s+(\S+)/))) {
-      cur.channel = { id: m[1]!, mode: m[2]! };
+    } else if ((m = t.match(/channel-group\s+(\d+)(?:\s+mode\s+(\S+))?/))) {
+      cur.channel = { id: m[1]!, mode: m[2] || 'on' };
     } else if ((m = t.match(/ip address\s+([\d.]+)\s+([\d.]+)\s+secondary/))) {
       cur.secondary.push({ ip: m[1]!, mask: m[2]! });
     } else if ((m = t.match(/ip address\s+([\d.]+)\s+([\d.]+)/))) {

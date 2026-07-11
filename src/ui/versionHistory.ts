@@ -19,9 +19,43 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.19.1';
+export const CURRENT_VERSION = '4.20.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.20.0',
+    date: '2026-07-11',
+    title: '全機能監査 再調査完了 + Phase間遷移・ローディング状態の統一',
+    changes: [
+      '[修正] Cisco: 番号付きACLエントリ・mode省略channel-group・switchport mode ' +
+        'dynamic auto/desirable・transport input all・DHCPプールの/prefix記法・' +
+        'ip routeのインターフェイス名next-hop・スタックスイッチのboot system文を' +
+        '認識するよう拡張。Port-channel継承にtrunkAllowedExplicit/mtuを追加。',
+      '[修正] SonicWall: ポート番号無しservice-object(ICMP等)・VLANサブIFの' +
+        'trunkAllowed重複・route-policy単一行の記述順序依存・NAT original-source/' +
+        'translated-sourceのスペース切り詰め・WAN ping/管理許可検出の`!`/`#`行誤検知を修正。',
+      '[修正] 検証エンジン: SEC broad-rule/shadow判定でANYゾーンをワイルドカード' +
+        '扱いに、Access VLAN 1の暗黙既定除外、/32サブネットの代表ホストIP計算を修正。',
+      '[修正] 作成モードUI: フォーム編集後に再生成せず検証すると古いコンフィグの' +
+        'まま通ってしまうバグ、VLAN削除時にポート/Port-channel/SVIの参照が残る' +
+        'バグ、SVI・DHCPプール名の重複チェック漏れを修正。',
+      '[修正] トポロジーUI: 手動配線で使用済みポートを選んでも無言で無視される' +
+        'バグ、配線済みポートのハイライト未実装、論理接続図のスイッチ同士の' +
+        'リンクが不自然な線になるバグを修正。ホームボタンの不要な確認ダイアログ、' +
+        'フェーズ遷移時にスクロール位置がリセットされない問題も解消。',
+      '[改善] アクセシビリティ: 到達性マトリクスにscope属性、各種トグル/カテゴリ' +
+        'チップにaria-pressedを追加。.exp拡張子をファイル選択の対象から除去。',
+      '[改善] テストカバレッジ: L1速度/Duplex/EtherChannelモード非互換、SEC各種、' +
+        'L2/L3/STP/CAPの既存ルールのうち未テストだった分岐に回帰テストを追加' +
+        '(36ケース追加、192ケース全PASS)。ARCHITECTURE.md/VERIFICATION-RULES.md' +
+        '/PARSER-NOTES.mdの陳腐化した記述も訂正。',
+      '[新機能] Phase間の遷移アニメーション・ローディング状態を統一。OSの' +
+        '「視差効果を減らす」設定時は全フェーズ共通の入場アニメーション・' +
+        '検証中演出のシマー・完了画面のスピンをすべて無効化し、検証中演出の' +
+        '待機時間も大幅短縮。簡易検証モードのファイル読込中に軽量なローディング' +
+        'バッジを追加(唯一の未対応だった非同期処理)。',
+    ],
+  },
   {
     version: '4.19.1',
     date: '2026-07-11',

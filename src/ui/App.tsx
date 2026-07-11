@@ -3,6 +3,7 @@
  * AppProvider で状態を供給し、Header + 現在の Phase + Footer を描画する。
  */
 
+import { useEffect } from 'react';
 import { AppProvider, useApp, type PhaseId } from './store';
 import { Header } from './components/Header';
 import { PhaseMode } from './phases/PhaseMode';
@@ -33,6 +34,12 @@ function PhaseRouter() {
 }
 
 function Shell() {
+  const { state } = useApp();
+  /* 全機能監査再調査: main には独自のスクロールコンテナが無く(ページ全体が
+   * window/body スクロール)、フェーズ遷移時にスクロール位置がリセットされない。
+   * 長いResultsページを下までスクロールした状態で「⟲ 再投入」等を押すと、
+   * 遷移先の短いフェーズが同じピクセルオフセットのまま(=途中から)表示される。 */
+  useEffect(() => { window.scrollTo(0, 0); }, [state.phase]);
   return (
     <>
       <Header />

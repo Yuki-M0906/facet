@@ -9,7 +9,7 @@ import type { Device, RuntimePort } from '@engine/types';
 import { useApp } from '../store';
 import { Faceplate, type PortHoverPos } from '../components/Faceplate';
 import { LinkList } from '../components/LinkList';
-import { ManualLinkEditor } from '../components/ManualLinkEditor';
+import { ManualLinkEditor, portInUse } from '../components/ManualLinkEditor';
 import { TopologyGraph } from '../components/TopologyGraph';
 import { PortTooltip, buildPortTipContent, type TipState } from '../components/PortTooltip';
 
@@ -25,6 +25,22 @@ export function PhaseTopology() {
   const devices: Device[] = [router, ...state.switches];
 
   const [tip, setTip] = useState<TipState>({ content: null, x: 0, y: 0, visible: false });
+  const [linkWarn, setLinkWarn] = useState<string | null>(null);
+
+  /* 全機能監査再調査: フェイスプレート上での「使用済みポート」クリックは
+   * reducer(TOPO_PORT_CLICK)側で静かに無視されるだけで、下の ManualLinkEditor
+   * (同じ制約のセレクタ版UI)と違って理由が一切表示されなかった。ここで
+   * dispatch 前に同じ判定を先読みし、同じ文言で警告を出す。 */
+  function handlePortClick(key: string, iface: string) {
+    const cur = state.topoSel;
+    if (cur && cur.key !== key && (portInUse(state.links, cur.key, cur.iface) || portInUse(state.links, key, iface))) {
+      setLinkWarn('選択したポートのどちらかは既に別のリンクで使用されています。先に既存のリンクを削除してください。');
+      dispatch({ type: 'TOPO_PORT_CLICK', key, iface });
+      return;
+    }
+    setLinkWarn(null);
+    dispatch({ type: 'TOPO_PORT_CLICK', key, iface });
+  }
 
   function handlePortHover(device: Device, port: RuntimePort, e: PortHoverPos) {
     const content = buildPortTipContent({
@@ -63,12 +79,11 @@ export function PhaseTopology() {
               key={d.key}
               device={d}
               annot={false}
-              onPortClick={state.topoMode === 'manual'
-                ? (key, iface) => dispatch({ type: 'TOPO_PORT_CLICK', key, iface })
-                : undefined}
+              onPortClick={state.topoMode === 'manual' ? handlePortClick : undefined}
               onPortHover={handlePortHover}
               onPortLeave={handlePortLeave}
               topoSel={state.topoMode === 'manual' ? state.topoSel : null}
+              links={state.topoMode === 'manual' ? state.links : undefined}
             />
           ))}
         </div>
@@ -88,6 +103,7 @@ export function PhaseTopology() {
             別機器のポートをクリックで接続、同じポートをもう一度で取消。
           </p>
         )}
+        {linkWarn && <div className="builder-warn" style={{ marginTop: 8 }}>⚠ {linkWarn}</div>}
       </div>
 
       <div className="panel">
@@ -97,6 +113,7 @@ export function PhaseTopology() {
             <button
               key={m}
               className={state.topoMode === m ? 'on' : ''}
+              aria-pressed={state.topoMode === m}
               onClick={() => {
                 /* 全機能監査 Medium-14: star/cascadeへの切替はautoLinks()の結果で
                  * links を無条件に置き換える(保存領域が無いためmanualに戻しても

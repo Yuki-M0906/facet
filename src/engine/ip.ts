@@ -49,6 +49,7 @@ export function inSubnet(ip: string, cidr: string): boolean {
 export function representativeHostIp(cidr: string, gw: string): string {
   const bits = Number(cidr.split('/')[1]);
   const hostBits = 32 - bits;
+  if (hostBits === 0) return gw;   // /32: ホストビットが無くオフセットの余地がない
   const offset = hostBits >= 5 ? 20 : 1;
   const netInt = (ipToInt(gw) & bitsToMaskInt(bits)) >>> 0;
   return intToIp(netInt + offset);

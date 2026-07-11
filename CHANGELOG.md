@@ -4,6 +4,93 @@
 
 ---
 
+## v4.20.0 — 2026-07-11
+
+### 全機能監査 再調査完了 + Phase間遷移・ローディング状態の統一
+
+v4.17.2(High 9件)・v4.18.1(Medium 19件)に続き、残っていた Low 17件・些末5件・
+一部保留 Medium の再洗い出しを並行監査(パーサ/検証エンジン/作成モードUI/UI-UX/
+ドキュメント・テストカバレッジの5系統)で実施し、47件の候補を独立検証。全件が
+有効な指摘と確認され(却下0件)、うち3件は再調査でMedium相当と判明し格上げ対応。
+実質約44件のユニークな指摘を全て修正。
+
+**パーサ(Cisco)**
+- 番号付きACLエントリ(`10 permit ...`)、mode省略の`channel-group <N>`(静的on
+  扱い)、`switchport mode dynamic auto/desirable`、`transport input all`
+  (telnet有効とみなす)、DHCPプール`network`行の`/prefix`記法、`ip route`の
+  インターフェイス名next-hop、スタックスイッチの`boot system switch all ...`
+  (platformHint)を認識するよう拡張。
+- Port-channel継承(S4-1)に`trunkAllowedExplicit`(`vlan none`の明示的全遮断)と
+  `mtu`を追加(従来は誤って「未指定=全許可扱い」のlackが出ていた)。
+
+**パーサ(SonicWall)**
+- ポート番号無し`service-object`(ICMP等プロトコル丸ごとのオブジェクト)を
+  from/to=nullとして認識。VLANサブIFの`trunkAllowed`重複を`uniq()`で解消。
+  `route-policy`単一行の記述順序(destination/gatewayどちらが先でも可)に対応し、
+  単一行完結時は即座にflushして後続行を巻き込まないよう修正。NAT
+  `original-source`/`translated-source`がスペースを含む値で切り詰められる
+  バグを修正。WAN ping/管理許可検出の誤検知除外を`!`/`#`行にも拡張。
+
+**検証エンジン**
+- SECのbroad-rule/shadow判定でゾーン値`ANY`をワイルドカードとして扱うよう
+  修正(evalFW()との非対称性を解消)。Access VLAN 1を実機の既定VLANとして
+  暗黙定義済み扱いにし、誤った「未定義」lackを解消。`/32`サブネットの
+  代表ホストIP計算(buildMatrix/pathTrace共通)がサブネット範囲外にロール
+  オーバーするバグを修正。
+
+**作成モードUI**
+- フォーム編集後に再生成せず「検証を実行」すると古いコンフィグのまま検証が
+  通ってしまうバグ(High-8で対応した明示的リセット時と同型の欠落)を修正。
+  VLAN削除時にポート/Port-channel/SVIの参照が残るバグ、SVI・DHCPプール名の
+  重複チェック漏れを修正(いずれも既存のACL名/channel-group番号の重複防止
+  パターンに揃える形)。
+
+**トポロジー/その他UI**
+- 手動配線で使用済みポートを選んでも無言で無視されるバグを修正(下部の
+  セレクタ版UIと同じ警告を表示)。配線済みポートのハイライト(`.topo-linked`)
+  が未配線だったCSSを実装。論理接続図でスイッチ同士のリンクが不自然に
+  膨らむバグを修正(同じ行の場合は左右の辺同士を直接つなぐ)。ホームボタンの
+  不要な確認ダイアログ(失うものが無い状態でも表示)、フェーズ遷移時に
+  スクロール位置がリセットされない問題を解消。
+
+**アクセシビリティ**
+- 到達性マトリクスに`scope`属性、検証結果フィルタ・トポロジーモード切替・
+  簡易検証モードの種別トグル・カテゴリチップに`aria-pressed`を追加。
+  `.exp`拡張子(意図的に非対応)をファイル選択ダイアログの対象から除去。
+
+**テストカバレッジ / ドキュメント**
+- L1速度/Duplex/EtherChannelモード非互換、SEC各種(enable password/SNMP/
+  WAN ping・管理許可/portfast・BPDU guard)、L2(リンク端構成無し/共通VLAN無し)、
+  L3(IP重複/DHCP default-router不一致)、STP(トランクportfast)、CAP
+  (SVI/ACL/STP variant/access-rule数/NATポリシー数)の既存ルールのうち
+  未テストだった分岐に回帰テストを追加。パーサ/検証エンジンの実修正17件にも
+  それぞれ対応するテストを追加(合計36ケース追加、192ケース全PASS)。
+  ARCHITECTURE.md(テスト件数・公開APIテーブル・PhaseId列挙の陳腐化)、
+  VERIFICATION-RULES.md(trunk allowed vlan noneの例外未記載)、
+  PARSER-NOTES.md(WAN ping/管理許可コメント除外の拡張)を訂正。
+
+### Phase間の遷移アニメーション・ローディング状態の統一
+
+Sprint 5.5 の残項目。フェーズ切替(`.phase` の入場アニメーション)はすでに
+全フェーズ共通で一貫していたが、OS の「視差効果を減らす」設定に一切対応
+しておらず、また唯一の非同期処理(簡易検証モードのファイル読込)にローディング
+表示が無かった。
+
+- `.phase`(全フェーズ共通)・`.analyzing .shim`(検証中のシマー)・
+  `.complete .gem`(完了画面のスピン)を `prefers-reduced-motion: reduce` 時に
+  一括で無効化する `@media` ブロックを追加。`.phase` は全フェーズ共通のため
+  1箇所の対応で全画面に効く。
+- PhaseAnalyze の演出待機(通常2.5秒)は視差効果を減らす設定時に150msへ短縮。
+  このタイマーは検証の実処理進捗ではなく固定長の意匠上の待機である旨をコード
+  コメントで明文化(検証自体は同期的に完了済み)。
+- PhaseQuick(簡易検証モード)のファイル読込中、作成モードの生成ステータスと
+  同じ `.builder-generate-status.pending` を再利用した「読み込み中…」バッジを
+  表示し、読込完了までファイル選択を無効化。
+- フルスクリーンの「検証中…」演出は verify→results の1箇所限定という方針を
+  `docs/ROADMAP.md` に明文化(他の非同期処理は今後もインラインバッジで対応)。
+
+---
+
 ## v4.19.1 — 2026-07-11
 
 ### Phase 00/01 のカードの縦高さが揃わないバグを修正

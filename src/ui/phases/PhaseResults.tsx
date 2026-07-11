@@ -177,6 +177,7 @@ export function PhaseResults() {
                 type="button"
                 key={c}
                 className={'cat ' + cls + (state.filter === c ? ' active' : '')}
+                aria-pressed={state.filter === c}
                 onClick={() => {
                   dispatch({ type: 'SET_FILTER', filter: c });
                   document.getElementById('findings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

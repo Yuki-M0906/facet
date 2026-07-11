@@ -21,8 +21,16 @@ export function Header() {
   }
 
   function goHome() {
-    if (!window.confirm('ホームに戻ります。選択した機種・トポロジー・投入したコンフィグ・検証結果は' +
-      'すべて破棄されます。よろしいですか?')) return;
+    /* 全機能監査再調査: PhaseSelect の hasExisting / PhaseIntake の anyLoaded
+     * (MED-14/MED-15)と同じガード方針。失うものが無い状態(Phase 00 で
+     * まだ何も選択していない等)でまで確認ダイアログを出すのは不要な摩擦。 */
+    const hasProgress = state.mode !== null || !!state.router || !!state.quickDevice || !!state.quickResult;
+    if (hasProgress) {
+      const msg = state.mode === 'quick'
+        ? 'ホームに戻ります。選択した機種・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?'
+        : 'ホームに戻ります。選択した機種・トポロジー・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?';
+      if (!window.confirm(msg)) return;
+    }
     dispatch({ type: 'RESET' });
   }
 

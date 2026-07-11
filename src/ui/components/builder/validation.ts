@@ -93,8 +93,18 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     }
   });
 
+  const seenSviVlans = new Map<string, number>();
   draft.svis.forEach((s, i) => {
-    if (!isValidVlanId(s.vlan)) errors[`svi.${i}.vlan`] = 'VLAN を選択してください';
+    if (!isValidVlanId(s.vlan)) {
+      errors[`svi.${i}.vlan`] = 'VLAN を選択してください';
+    } else {
+      const prev = seenSviVlans.get(s.vlan);
+      if (prev !== undefined) {
+        errors[`svi.${i}.vlan`] = '同じVLANのSVIが重複しています';
+        errors[`svi.${prev}.vlan`] = '同じVLANのSVIが重複しています';
+      }
+      seenSviVlans.set(s.vlan, i);
+    }
     if (!isValidIp(s.ip)) errors[`svi.${i}.ip`] = 'IP アドレスの形式が不正です';
     if (!isValidMask(s.mask)) errors[`svi.${i}.mask`] = 'サブネットマスクの形式が不正です';
     /* HSRP(SF5-7): 片方だけ入力された「未完成」な状態のみ弾く。両方空なら
@@ -130,8 +140,18 @@ export function validateCiscoDraft(draft: CiscoBuilderDraft): ErrorMap {
     });
   });
 
+  const seenPoolNames = new Map<string, number>();
   draft.dhcpPools.forEach((d, i) => {
-    if (!isNonEmpty(d.name)) errors[`dhcp.${i}.name`] = 'プール名を入力してください';
+    if (!isNonEmpty(d.name)) {
+      errors[`dhcp.${i}.name`] = 'プール名を入力してください';
+    } else {
+      const prev = seenPoolNames.get(d.name);
+      if (prev !== undefined) {
+        errors[`dhcp.${i}.name`] = 'プール名が重複しています';
+        errors[`dhcp.${prev}.name`] = 'プール名が重複しています';
+      }
+      seenPoolNames.set(d.name, i);
+    }
     if (!isValidIp(d.network)) errors[`dhcp.${i}.network`] = 'ネットワークアドレスの形式が不正です';
     if (!isValidMask(d.mask)) errors[`dhcp.${i}.mask`] = 'サブネットマスクの形式が不正です';
     if (!isValidIp(d.gw)) errors[`dhcp.${i}.gw`] = 'IP アドレスの形式が不正です';

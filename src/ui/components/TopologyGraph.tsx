@@ -50,7 +50,19 @@ export function TopologyGraph({ router, switches, links, annot, result }: Props)
           const a = pos[L.a.key];
           const b = pos[L.b.key];
           if (!a || !b) return null;
-          const x1 = a.x + NW / 2, y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y;
+          /* 全機能監査再調査: 従来は常に「aの下辺→bの上辺」で結んでいたため、
+           * カスケード/手動配線の同一行(スイッチ同士)リンクが下に一度膨らんでから
+           * 戻る不自然な線になっていた。同じ行(y座標が同じ)同士は左右の辺を
+           * 直接つなぐ。 */
+          let x1: number, y1: number, x2: number, y2: number;
+          if (a.y === b.y) {
+            const [left, right] = a.x <= b.x ? [a, b] : [b, a];
+            x1 = left.x + NW; y1 = left.y + NH / 2;
+            x2 = right.x; y2 = right.y + NH / 2;
+          } else {
+            x1 = a.x + NW / 2; y1 = a.y + NH;
+            x2 = b.x + NW / 2; y2 = b.y;
+          }
           let col = 'var(--gold-dim)';
           let dash: string | undefined;
           if (annot && result) {
