@@ -52,6 +52,14 @@ export function expandIfRange(spec: string, prefix?: string): string[] {
       for (let i = Number(m[3]); i <= Number(m[4]); i++) out.push((prefix || (m[1] + m[2])) + i);
       return;
     }
+    /* `interface range vlan <a> - <b>`(SVI range構文、全機能監査 Medium-4)。
+     * スラッシュ階層を持たないため上の2パターンにはマッチせず、そのまま
+     * 未展開の1エントリとして残っていた。 */
+    const v = seg.match(/^vlan\s+(\d+)\s*-\s*(\d+)$/i);
+    if (v) {
+      for (let k = Number(v[1]); k <= Number(v[2]); k++) out.push('Vlan' + k);
+      return;
+    }
     const s = seg.match(/^(\d+)\s*-\s*(\d+)$/);
     if (s && prefix) {
       for (let j = Number(s[1]); j <= Number(s[2]); j++) out.push(prefix + j);

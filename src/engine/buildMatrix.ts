@@ -5,6 +5,7 @@
  */
 
 import { evalFW } from './evalFW';
+import { representativeHostIp } from './ip';
 import type { AppState, BlockedPair, MatrixCell, ReachabilityMatrix, Subnet } from './types';
 
 export function buildMatrix(state: AppState, subnets: Subnet[]): ReachabilityMatrix {
@@ -13,7 +14,12 @@ export function buildMatrix(state: AppState, subnets: Subnet[]): ReachabilityMat
   function reach(s: Subnet, d: Subnet): MatrixCell {
     if (s === d) return 'self';
     if (!s.gw || !d.gw) return 'nogw';
-    const res = evalFW(r.parsed as never, s.zone || 'LAN', d.zone || 'LAN', s.gw, d.gw, 'any');
+    /* 全機能監査 Medium-8: pathTrace.ts と同じ代表ホストIP算出ロジックを使い、
+     * 宛先を特定ホストで絞るFWルールがある構成でもマトリクス表示と経路トレース
+     * の判定が一致するようにする(以前はここだけゲートウェイIPそのものを使っていた)。 */
+    const sIp = representativeHostIp(s.cidr, s.gw);
+    const dIp = representativeHostIp(d.cidr, d.gw);
+    const res = evalFW(r.parsed as never, s.zone || 'LAN', d.zone || 'LAN', sIp, dIp, 'any');
     return res.action === 'allow' ? 'ok' : 'deny';
   }
 

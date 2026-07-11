@@ -59,11 +59,18 @@ export function parseSonicWall(text: string): SonicWallParsed {
   let cur: ParsedInterface | null = null;
   let rule: AccessRule | null = null;
   let nat: NatPolicy | null = null;
+  let route: { dst: string | null; mask: string | null; nh: string | null } | null = null;
 
   function flushIf() { if (cur) { out.interfaces[cur.name] = cur; cur = null; } }
   function flushRule() { if (rule) { out.rules.push(rule); rule = null; } }
   function flushNat() { if (nat) { out.nat.push(nat); nat = null; } }
-  function flushAll() { flushIf(); flushRule(); flushNat(); }
+  function flushRoute() {
+    if (route && route.dst && route.mask && route.nh) {
+      out.routes.push({ dst: route.dst, mask: route.mask, nh: route.nh });
+    }
+    route = null;
+  }
+  function flushAll() { flushIf(); flushRule(); flushNat(); flushRoute(); }
 
   /* ---- カバレッジ計測(Sprint 3 P3-1) ----
    * Cisco と違い、この parser の nat/rule ブロックは内部の if/else-if がどれにも
@@ -145,13 +152,34 @@ export function parseSonicWall(text: string): SonicWallParsed {
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^route-?policy.*?dest(?:ination)?\s+([\d.]+)\s+([\d.]+).*?gateway\s+([\d.]+)/i))) {
-        out.routes.push({ dst: m[1]!, mask: m[2]!, nh: m[3]! });
+      if (/^route-?policy\b/i.test(t)) {
+        /* 全機能監査 Medium-12: 以前は単一行完結パターンのみ対応しており、
+         * nat-policy/access-rule と同様の実際のステートフルな複数行ブロック構文
+         * (route-policy の次行以降に destination / gateway が続く形)には非対応
+         * だった。単一行完結パターン(後方互換)も引き続き受け付ける。 */
+        flushAll();
+        route = { dst: null, mask: null, nh: null };
+        const inline = t.match(/^route-?policy.*?dest(?:ination)?\s+([\d.]+)\s+([\d.]+).*?gateway\s+([\d.]+)/i);
+        if (inline) { route.dst = inline[1]!; route.mask = inline[2]!; route.nh = inline[3]!; }
         recognized = true;
         break matchLine;
       }
-      if (/ping.*from\s+wan/i.test(t)) { out.sec.pingWanAllow = true; recognized = true; }
-      if (/management.*(from\s+wan|wan.*allow)/i.test(t)) { out.sec.mgmtWanAllow = true; recognized = true; }
+      if (route) {
+        if ((m = t.match(/^dest(?:ination)?\s+([\d.]+)\s+([\d.]+)/i))) {
+          route.dst = m[1]!; route.mask = m[2]!; recognized = true;
+        } else if ((m = t.match(/^gateway\s+([\d.]+)/i))) {
+          route.nh = m[1]!; recognized = true;
+        }
+        if (/^(end|exit)\s*$/i.test(t) || t === '') { flushRoute(); recognized = true; }
+        break matchLine;
+      }
+      /* 全機能監査 Medium-6: 行頭アンカー・文脈判定が無い緩い部分一致のため、
+       * 例えば `comment "no ping from wan - blocked by policy"` のような
+       * コメント行でも誤マッチしていた。コメント行(`comment ...`)を対象外にする。
+       * (実際のSonicOS CLI構文自体との厳密な照合は別途要検証、既知の制約として
+       * PARSER-NOTES.md に記載する。) */
+      if (!/^comment\b/i.test(t) && /ping.*from\s+wan/i.test(t)) { out.sec.pingWanAllow = true; recognized = true; }
+      if (!/^comment\b/i.test(t) && /management.*(from\s+wan|wan.*allow)/i.test(t)) { out.sec.mgmtWanAllow = true; recognized = true; }
       if ((m = t.match(/^interface\s+(X\d+(?::?V?\d+)?)/i))) {
         flushAll();
         const name = m[1]!.replace(/:?V(\d+)/i, ':V$1');
@@ -165,8 +193,13 @@ export function parseSonicWall(text: string): SonicWallParsed {
         cur.zone = m[1]!;
         out.zonesByIf[cur.name] = m[1]!;
         recognized = true;
-      } else if ((m = t.match(/^ip-?assignment\s+(\S+)/i))) {
-        if (!cur.zone) cur.zone = m[1]!;
+      } else if (/^ip-?assignment\s+\S+/i.test(t)) {
+        /* 全機能監査 Medium-7: 以前は「zone未設定ならip-assignmentの引数をzone名として
+         * 採用する」フォールバックがあったが、この引数の実際の意味は割当モード
+         * (static/dhcp等)であり zone 名ではない。zone行がip-assignment行より先に
+         * 来る通常の構成では zone 設定済みのためこのフォールバック自体は発火せず
+         * 隠蔽されていたが、zone行が無い/後に来る構成では誤ったゾーン名(モード名)が
+         * isWan() 等の判定に使われてしまう。ゾーン推定には使わず、行の認識のみ行う。 */
         recognized = true;
       } else if ((m = t.match(/^ip\s+([\d.]+)\s+netmask\s+([\d.]+)/i))) {
         cur.ip = m[1]!;

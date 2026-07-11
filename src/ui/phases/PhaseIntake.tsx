@@ -12,6 +12,20 @@ export function PhaseIntake() {
   const router = state.router!;
   const devices: Device[] = [router, ...state.switches];
   const allLoaded = devices.every((d) => !!d.config);
+  const anyLoaded = devices.some((d) => !!d.config);
+
+  /* 全機能監査 Medium-15: 「サンプルコンフィグを読み込む」「クリア」は以前は
+   * 確認なしに即座に既存データを上書き/消去していた。同じ画面の他ボタン
+   * (PhaseSelect.tsx の構成変更確認、PhaseBuild.tsx の機器リセット確認)と
+   * 同様に、既に投入済みのデータがある場合のみ確認ダイアログを出す。 */
+  function loadSamples() {
+    if (anyLoaded && !window.confirm('投入済みのコンフィグをすべてサンプルデータで上書きします。よろしいですか?')) return;
+    dispatch({ type: 'LOAD_SAMPLES' });
+  }
+  function clearIntake() {
+    if (anyLoaded && !window.confirm('投入済みのコンフィグをすべてクリアします。よろしいですか?')) return;
+    dispatch({ type: 'CLEAR_INTAKE' });
+  }
 
   /* スロット状態:loaded / ready / locked。未投入の最初の機器のみ ready、それより後は locked */
   let firstU = -1;
@@ -42,10 +56,10 @@ export function PhaseIntake() {
           ))}
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button className="btn ghost" onClick={() => dispatch({ type: 'LOAD_SAMPLES' })}>
+          <button className="btn ghost" onClick={loadSamples}>
             ◆ サンプルコンフィグを読み込む
           </button>
-          <button className="btn ghost" onClick={() => dispatch({ type: 'CLEAR_INTAKE' })}>
+          <button className="btn ghost" onClick={clearIntake}>
             クリア
           </button>
         </div>

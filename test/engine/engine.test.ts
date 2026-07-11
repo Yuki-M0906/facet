@@ -10,6 +10,8 @@ import { describe, it, expect } from 'vitest';
 import {
   CATALOG,
   autoLinks,
+  buildMatrix,
+  buildSubnets,
   evalFW,
   expandIfRange,
   mapToPorts,
@@ -1133,5 +1135,163 @@ describe('SEC — WAN絡みの any/any/any 除外条件の修正(全機能監査
     const Rw = makeDev('R1', 'router', rm, swWan);
     const V3 = verify({ router: Rw, switches: [], devices: [Rw], topoMode: 'star', links: [] });
     expect(V3.findings.some((f) => f.cat === 'SEC' && f.desc.includes('any/any/any'))).toBe(false);
+  });
+});
+
+describe('parseCisco — interface range vlan 展開(全機能監査 Medium-4)', () => {
+  it('interface range vlan 100 - 102 が3つのSVIに展開され、各々に正しいsviVlanが付く', () => {
+    const cfg = 'hostname RANGE-TEST\ninterface range vlan 100 - 102\n ip address 10.100.0.1 255.255.255.0\n!\n';
+    const p = parseCisco(cfg);
+    expect(Object.keys(p.interfaces).sort()).toEqual(['Vlan100', 'Vlan101', 'Vlan102']);
+    expect(p.interfaces['Vlan100']!.sviVlan).toBe('100');
+    expect(p.interfaces['Vlan101']!.sviVlan).toBe('101');
+    expect(p.interfaces['Vlan102']!.sviVlan).toBe('102');
+  });
+});
+
+describe('parseSonicWall — WAN ping/管理許可のコメント誤検知防止(全機能監査 Medium-6)', () => {
+  it('コメント行内の "ping ... from wan" は誤って検知しない', () => {
+    const p = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        ' comment "no ping from wan - blocked by policy"\n',
+    );
+    expect(p.sec.pingWanAllow).toBe(false);
+  });
+  it('実際のディレクティブ行は引き続き検知する', () => {
+    const p = parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n ping from wan allow\n');
+    expect(p.sec.pingWanAllow).toBe(true);
+  });
+});
+
+describe('parseSonicWall — ip-assignment のゾーンフォールバック削除(全機能監査 Medium-7)', () => {
+  it('zone 行が無い場合、ip-assignment の値が誤って zone に採用されない(旧: "static" 等がzoneになっていた)', () => {
+    const p = parseSonicWall('interface X1\n ip-assignment static\n ip 203.0.113.2 netmask 255.255.255.248\n');
+    expect(p.interfaces['X1']!.zone).toBeNull();
+  });
+});
+
+describe('parseSonicWall — route-policy 複数行ブロック対応(全機能監査 Medium-12)', () => {
+  it('destination/gatewayが別行に分かれたブロック構文でもrouteが認識される', () => {
+    const p = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'route-policy\n destination 0.0.0.0 0.0.0.0\n gateway 203.0.113.1\n end\n',
+    );
+    expect(p.routes.length).toBe(1);
+    expect(p.routes[0]).toEqual({ dst: '0.0.0.0', mask: '0.0.0.0', nh: '203.0.113.1' });
+  });
+  it('2つのroute-policyブロックが連続しても両方認識される', () => {
+    const p = parseSonicWall(
+      'route-policy\n destination 10.0.0.0 255.0.0.0\n gateway 192.168.1.1\n end\n' +
+        'route-policy\n destination 172.16.0.0 255.240.0.0\n gateway 192.168.1.2\n end\n',
+    );
+    expect(p.routes.length).toBe(2);
+  });
+});
+
+describe('verify — MTU不一致のポート状態反映(全機能監査 Medium-5)', () => {
+  it('MTU不一致findingが出た両端のポートstatusもlackになる', () => {
+    const uplink = switchPorts(sm).find((p) => p.label === 'U1')!.iface;
+    const sw1 = makeDev('SW1', 'switch', sm, parseCisco(
+      'hostname SW1\nvlan 10\n name A\ninterface ' + uplink +
+        '\n switchport mode trunk\n switchport trunk allowed vlan 10\n mtu 9000\n!\n',
+    ));
+    const sw2 = makeDev('SW2', 'switch', sm, parseCisco(
+      'hostname SW2\nvlan 10\n name A\ninterface ' + uplink +
+        '\n switchport mode trunk\n switchport trunk allowed vlan 10\n mtu 1500\n!\n',
+    ));
+    const router = makeDev('R1', 'router', rm, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    [router, sw1, sw2].forEach((d) => mapToPorts(d));
+    const st: AppState = {
+      router, switches: [sw1, sw2], devices: [router, sw1, sw2], topoMode: 'manual',
+      links: [{ a: { key: 'SW1', iface: uplink }, b: { key: 'SW2', iface: uplink } }],
+    };
+    const V = verify(st);
+    expect(V.findings.some((f) => f.cat === 'L1' && f.desc.includes('MTU 不一致'))).toBe(true);
+    expect(sw1.ports.find((p) => p.iface === uplink)!.status).toBe('lack');
+    expect(sw2.ports.find((p) => p.iface === uplink)!.status).toBe('lack');
+  });
+});
+
+describe('verify — shutdown済みポートのmode未指定チェック除外(全機能監査 Medium-10)', () => {
+  it('shutdown済みかつmode未指定のポートは「dynamic auto」警告を出さない(shutdown自体のlackは引き続き出る)', () => {
+    const downIface = switchPorts(sm).find((p) => p.label === '1')!.iface;
+    const router = makeDev('R1', 'router', rm, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw = makeDev('SW1', 'switch', sm, parseCisco('hostname SHUT\ninterface ' + downIface + '\n shutdown\n!\n'));
+    [router, sw].forEach((d) => mapToPorts(d));
+    const V = verify({ router, switches: [sw], devices: [router, sw], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('dynamic auto'))).toBe(false);
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('shutdown'))).toBe(true);
+  });
+});
+
+describe('verify — 同一CIDR重複割当の検出(全機能監査 Medium-9)', () => {
+  it('同一CIDRが2つのVLANに重複割当されるとL3 errが出る', () => {
+    const router = makeDev('R1', 'router', rm, parseSonicWall(
+      'interface X0:V10\n vlan 10\n zone LAN\n ip 192.168.1.1 netmask 255.255.255.0\n' +
+        'interface X0:V20\n vlan 20\n zone LAN\n ip 192.168.1.5 netmask 255.255.255.0\n',
+    ));
+    mapToPorts(router);
+    const V = verify({ router, switches: [], devices: [router], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'L3' && f.level === 'err' && f.desc.includes('重複割当'))).toBe(true);
+  });
+  it('CIDRが重複しなければ発火しない(回帰確認)', () => {
+    const router = makeDev('R1', 'router', rm, parseSonicWall(
+      'interface X0:V10\n vlan 10\n zone LAN\n ip 192.168.10.1 netmask 255.255.255.0\n' +
+        'interface X0:V20\n vlan 20\n zone LAN\n ip 192.168.20.1 netmask 255.255.255.0\n',
+    ));
+    mapToPorts(router);
+    const V = verify({ router, switches: [], devices: [router], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('重複割当'))).toBe(false);
+  });
+});
+
+describe('buildMatrix/pathTrace — 代表ホストIPの統一(全機能監査 Medium-8)', () => {
+  it('マトリクスと経路トレースが同一の代表IPを使い、判定が一致する(旧: buildMatrixはGW、pathTraceはGW+20で食い違いうる)', () => {
+    const router = makeDev('R1', 'router', rm, parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'interface X0:V20\n vlan 20\n zone POS\n ip 10.0.20.1 netmask 255.255.255.0\n' +
+        'access-rule from LAN to POS\n action allow\n source any\n destination 10.0.20.20\n service any\n',
+    ));
+    mapToPorts(router);
+    const st: AppState = { router, switches: [], devices: [router], topoMode: 'star', links: [] };
+    const subnets = buildSubnets(st);
+    const matrix = buildMatrix(st, subnets);
+    const lanCidr = subnets.find((s) => s.zone === 'LAN')!.cidr;
+    const posCidr = subnets.find((s) => s.zone === 'POS')!.cidr;
+    const trace = pathTrace(st, lanCidr, posCidr, 'any');
+    const matrixOk = matrix.cells[lanCidr]![posCidr] === 'ok';
+    expect(matrixOk).toBe(trace.verdict === 'ok');
+    /* このルールは 10.0.20.20(ネットワークアドレス+20)宛のみ許可しており、
+     * 代表IPの算出が両者で一致していなければ少なくとも片方は deny になるはず。
+     * 統一後は両方 ok になることを直接確認する。 */
+    expect(matrixOk).toBe(true);
+    expect(trace.verdict).toBe('ok');
+  });
+});
+
+describe('CAP — STPインスタンス数上限(全機能監査 Medium-13)', () => {
+  it('PVST/Rapid-PVSTでVLAN数がSTPインスタンス上限を超えるとCAP errが発火', () => {
+    const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+    let cfg = 'hostname STP-OVERFLOW\nspanning-tree mode rapid-pvst\n';
+    for (let i = 10; i < 80; i++) cfg += 'vlan ' + i + '\n name V' + i + '\n';
+    cfg += 'interface ' + switchPorts(sm1000).find((p) => p.label === 'U1')!.iface +
+      '\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n';
+    const router = makeDev('R1', 'router', rm, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    [router, sw].forEach((d) => mapToPorts(d));
+    const V = verify({ router, switches: [sw], devices: [router, sw], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'CAP' && f.level === 'err' && f.desc.includes('STP インスタンス数'))).toBe(true);
+  });
+  it('MSTモードでは対象外(VLAN数が多くても発火しない)', () => {
+    const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+    let cfg = 'hostname MST-OK\nspanning-tree mode mst\n';
+    for (let i = 10; i < 80; i++) cfg += 'vlan ' + i + '\n name V' + i + '\n';
+    cfg += 'interface ' + switchPorts(sm1000).find((p) => p.label === 'U1')!.iface +
+      '\n switchport mode trunk\n switchport trunk allowed vlan 10\n!\n';
+    const router = makeDev('R1', 'router', rm, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw = makeDev('SW1', 'switch', sm1000, parseCisco(cfg));
+    [router, sw].forEach((d) => mapToPorts(d));
+    const V = verify({ router, switches: [sw], devices: [router, sw], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'CAP' && f.desc.includes('STP インスタンス数'))).toBe(false);
   });
 });

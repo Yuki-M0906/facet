@@ -113,6 +113,7 @@ export function DeviceSlot({ device, status, onFile }: Props) {
           type="file"
           accept=".txt,.cfg,.conf,.log,.exp"
           onChange={handleChange}
+          disabled={status === 'locked'}
         />
         ファイル選択
       </label>

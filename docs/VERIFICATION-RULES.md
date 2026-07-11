@@ -22,13 +22,21 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
   channel-group 未設定のポートが含まれる → err。対向側のポートが複数の異なる
   channel-group にまたがる → err。メンバーポート数が対向と非対称 → lack。
   どのメンバーにもリンクが宣言されていない場合は判定不能として silent skip。
+  **既知の制約(全機能監査 Medium-11)**: `autoLinks()` の star/cascade(既定
+  トポロジー)はスイッチ1台につき1本のリンクしか生成しないため、channel-group
+  の複数物理メンバーポートが実際に配線された状態にはならず、上記チェックは
+  既定トポロジーでは事実上常に silent skip になる。LACP/EtherChannel 束を
+  実効的に検証したい場合は、手動トポロジー(`topoMode: 'manual'`)でメンバー
+  ポートそれぞれのリンクを明示的に宣言する必要がある。
 
 ## L2 — VLAN / Trunk
 - Access port references a VLAN not in the VLAN DB → lack (port → lack)
 - Trunk with no `allowed vlan` (implicit all) → lack
 - `switchport mode` unset → lack(機種既定の DTP `dynamic auto` として動作。VLAN 設定
   の有無を問わず発火。Sprint 3 P3-3 で「VLAN 設定がある場合のみ」から拡張)
-- shutdown port that is a declared link end → lack
+- shutdown port(スイッチの全ポート対象。リンク宣言の有無は問わない — 未使用の
+  予備ポートに対するハードニング目的の shutdown も同じ基準で検知する。全機能監査
+  Medium-20 で「declared link end のみ」という以前の誤記述を訂正) → lack
 - Per link: mode mismatch (access↔trunk) → err; native VLAN mismatch → err; no common
   allowed VLAN → err; switch-side VLAN not allowed on the router side → lack
 - Link end with no interface config at all → lack
@@ -52,6 +60,10 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
 ## L3 — Reachability
 - An access VLAN in use has no L3 gateway (no subnet with a gateway for that VLAN) → lack
 - Duplicate IP across interfaces → err
+- Duplicate CIDR across different VLANs/interfaces → err(全機能監査 Medium-9。
+  到達性マトリクス・経路トレースはサブネットを CIDR 単位で識別するため、同一
+  CIDR が複数箇所に重複割当されていると表示が正しく区別できなくなる。まず
+  根本原因である重複割当自体を指摘する)
 - DHCP pool `default-router` ≠ the actual gateway of that subnet → err
 - Static route (`ip route` / SonicWall route-policy) next-hop does not fall within any
   known subnet → lack(Sprint 4 S4-2)。ただし、当該デバイスに IP リテラルの無い
@@ -70,7 +82,9 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
 - WAN-side ping allowed → lack; WAN-side management allowed → err
 - Access port without `portfast` → lack; portfast without `bpduguard` → lack
 - `any/any/any` allow rule (overly permissive) → lack
-- Rule shadowed by an earlier broad same-zone allow → lack
+- Rule shadowed by an earlier broad rule(any/any/any、from→to ゾーンペアが一致すれば
+  `action` が allow/deny のどちらでも対象。全機能監査 Medium-20 で「同一ゾーンの
+  許可ルールのみ」と読める以前の記述を訂正)→ lack
 
 ## Reachability matrix
 `buildMatrix` computes subnet→subnet via `evalFW` with service `any`:
@@ -82,6 +96,8 @@ Same-subnet (L2) pairs are out of scope.
 が定義されていれば、その上限・対応範囲を config が超えていないかをチェックする。
 capabilities が未定義の SKU は silent skip(何も発火しない)。
 - VLAN 数が `maxVlansSupported` を超過 → err
+- STP インスタンス数(PVST/Rapid-PVST 時、VLAN 数と等価)が `maxStpInstances` を
+  超過 → err(全機能監査 Medium-13、2026-07-11 追加。MST は対象外)
 - SVI 数が `maxSviCount` を超過 → err
 - ACL 総エントリ数が `maxAclEntries` を超過(概算) → err
 - `spanning-tree mode` が SKU の `stpVariants` に含まれない → err
