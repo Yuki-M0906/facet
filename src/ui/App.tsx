@@ -13,6 +13,8 @@ import { PhaseBuild } from './phases/PhaseBuild';
 import { PhaseAnalyze } from './phases/PhaseAnalyze';
 import { PhaseResults } from './phases/PhaseResults';
 import { PhaseComplete } from './phases/PhaseComplete';
+import { PhaseQuick } from './phases/PhaseQuick';
+import { PhaseQuickResults } from './phases/PhaseQuickResults';
 
 function PhaseRouter() {
   const { state } = useApp();
@@ -25,6 +27,8 @@ function PhaseRouter() {
     case 'analyze': return <PhaseAnalyze />;
     case 'results': return <PhaseResults />;
     case 'complete': return <PhaseComplete />;
+    case 'quick': return <PhaseQuick />;
+    case 'quickResults': return <PhaseQuickResults />;
   }
 }
 

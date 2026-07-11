@@ -1,6 +1,7 @@
 /**
  * Phase 00 — モード選択。
- * ① 既存コンフィグを検証(実装済) / ② GUI でゼロから作成(Sprint 5 MVP、実装済)
+ * ① 既存コンフィグを検証(実装済) / ② GUI でゼロから作成(Sprint 5 MVP、実装済) /
+ * ③ 単体機器だけを簡易検証(v4.19.0)
  */
 
 import { useApp } from '../store';
@@ -12,9 +13,10 @@ export function PhaseMode() {
       <div className="kicker">Phase 00 — Mode</div>
       <h1 className="title">モード選択</h1>
       <p className="lede">
-        既存のコンフィグを<b>検証</b>するか、GUI でゼロから<b>作成</b>するかを選んでください。
+        既存のコンフィグを<b>検証</b>するか、GUI でゼロから<b>作成</b>するか、
+        単体機器だけを<b>簡易検証</b>するかを選んでください。
       </p>
-      <div className="grid2">
+      <div className="grid3">
         <div className="panel modecard">
           <div className="eyebrow">① 検証モード</div>
           <div className="modecard-h">既存コンフィグを検証</div>
@@ -56,6 +58,29 @@ export function PhaseMode() {
             onClick={() => {
               dispatch({ type: 'SET_MODE', mode: 'build' });
               dispatch({ type: 'NAV', phase: 'select' });
+            }}
+          >
+            このモードで進む →
+          </button>
+        </div>
+        <div className="panel modecard">
+          <div className="eyebrow">③ 簡易検証モード</div>
+          <div className="modecard-h">1台だけサッと検証</div>
+          <p className="modecard-p">
+            機種選定・トポロジー指定を省略し、機器1台分のコンフィグを直接アップロードして
+            その場で静的チェックします。手早く1台だけ確認したいときに。
+          </p>
+          <div className="modecard-bullets">
+            <span>・ 種別(ルータ/スイッチ)+機種を選んでアップロードするだけ</span>
+            <span>・ 配線不一致・STPループ・マトリクス等の複数機器チェックは対象外</span>
+            <span>・ 総合検証は「① 検証モード」を利用</span>
+          </div>
+          <button
+            className="btn primary"
+            style={{ marginTop: 18 }}
+            onClick={() => {
+              dispatch({ type: 'SET_MODE', mode: 'quick' });
+              dispatch({ type: 'NAV', phase: 'quick' });
             }}
           >
             このモードで進む →
