@@ -83,6 +83,7 @@ details.panel>summary.eyebrow-collapsible:focus-visible{outline:2px solid var(--
 details.panel>.panel-body{padding:16px 22px 22px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}@media(max-width:1100px){.grid3{grid-template-columns:1fr 1fr}}@media(max-width:680px){.grid3{grid-template-columns:1fr}}
+.grid2>.panel,.grid3>.panel{margin-top:0}
 .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:16px;display:flex;align-items:center;gap:10px}
 .eyebrow::after{content:"";flex:1;height:1px;background:var(--hair)}
 label.fld{display:block;margin-bottom:18px}label.fld span{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}
@@ -298,7 +299,8 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .capchip{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;padding:3px 9px;border-radius:6px;background:rgba(201,168,106,.08);border:1px solid var(--hair);color:var(--gold-lt)}
 
 /* Phase 00 モードカード */
-.modecard{transition:border-color .25s,box-shadow .25s;cursor:default}
+.modecard{display:flex;flex-direction:column;transition:border-color .25s,box-shadow .25s;cursor:default}
+.modecard>.btn.primary{margin-top:auto!important}
 .modecard:not(.disabled):hover{border-color:var(--gold-dim);box-shadow:0 16px 40px -20px rgba(201,168,106,.4)}
 .modecard.disabled{opacity:.5;filter:grayscale(.3)}
 .modecard-h{font-family:var(--sans);font-size:22px;font-weight:600;margin-bottom:10px;color:var(--ink)}
