@@ -19,7 +19,7 @@ export function PhaseMode() {
           <div className="eyebrow">① 検証モード</div>
           <div className="modecard-h">既存コンフィグを検証</div>
           <p className="modecard-p">
-            手元の Cisco running-config / SonicOS CLI 出力を投入し、L1〜L3・FW・ハードニングを 6 カテゴリで静的検証します。
+            手元の Cisco running-config / SonicOS CLI 出力を投入し、L1〜L3・FW・ハードニング・機材capabilityを 7 カテゴリで静的検証します。
             経路トレースと到達性マトリクスも生成。
           </p>
           <div className="modecard-bullets">

@@ -53,6 +53,11 @@ Sprint 3 (P3-3) で「未指定時の既定挙動」のモデル化を反映(202
 - An access VLAN in use has no L3 gateway (no subnet with a gateway for that VLAN) → lack
 - Duplicate IP across interfaces → err
 - DHCP pool `default-router` ≠ the actual gateway of that subnet → err
+- Static route (`ip route` / SonicWall route-policy) next-hop does not fall within any
+  known subnet → lack(Sprint 4 S4-2)。ただし、当該デバイスに IP リテラルの無い
+  WAN インターフェイス(DHCP 取得)が1つでも存在する場合、その ISP 側サブネットは
+  静的に把握できないため、このチェック自体をそのデバイスの全ルートについて
+  スキップする(全機能監査 High-7 対応)。
 
 ## FW — Firewall policy (SonicWall)
 - For each non-WAN zone, if no rule allows it to reach WAN → lack (can't reach internet)

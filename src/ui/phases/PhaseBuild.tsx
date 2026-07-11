@@ -94,9 +94,9 @@ export function PhaseBuild() {
                 className="btn ghost sm"
                 style={{ marginLeft: 'auto' }}
                 onClick={() => {
-                  if (!window.confirm('この機器の入力内容をすべてリセットします。よろしいですか?')) return;
+                  if (!window.confirm('この機器の入力内容と生成済みコンフィグをすべてリセットします。よろしいですか?')) return;
                   const fresh = d.role === 'router' ? initSonicWallDraft(d) : initCiscoDraft(d);
-                  dispatch({ type: 'SET_BUILDER_DRAFT', key: d.key, draft: fresh });
+                  dispatch({ type: 'RESET_DEVICE_DRAFT', key: d.key, draft: fresh });
                 }}
               >
                 ⟲ この機器をリセット

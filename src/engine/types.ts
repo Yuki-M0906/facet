@@ -160,6 +160,10 @@ export interface ParsedInterface {
   accessVlan: string | null;
   trunkNative: string | null;
   trunkAllowed: string[];
+  /** `switchport trunk allowed vlan ...` 行(add/none 含む)が一度でも現れたか。
+   * false かつ trunkAllowed=[] は「未指定(全許可扱い)」、true かつ trunkAllowed=[] は
+   * 明示的な `vlan none`(全VLAN遮断)を区別するための flag(Sprint 5.5後 High-1 監査対応)。 */
+  trunkAllowedExplicit: boolean;
   /* Cisco 固有 */
   channel: ChannelGroup | null;
   sviVlan: string | null;

@@ -28,7 +28,7 @@ Node.js などのインストールは不要、ネットも不要(完全自己�
 ```bash
 npm install
 npm run dev       # 開発サーバ (HMR、http://localhost:5173)
-npm test          # Vitest 全 46 ケース
+npm test          # Vitest 回帰スイート全ケース(version/engine/builder の3ファイル)
 npm run build     # dist/index.html を生成(配布物)
 npm run preview   # dist/ をローカル配信して最終確認
 ```
@@ -61,12 +61,10 @@ Node.js 20+ が必要。Windows / macOS / Linux で同じ手順。
 
 ## バージョン
 
-- **v4.0.0**(現行) — Vite + React + TypeScript 化、機材カタログ実物化、
-  GUI 作成モード MVP。単一 HTML 出力は維持
-- v3.1.0 — Sprint 1: svcMatch / pathTrace バグ修正、Meiryo UI 統一、Phase 00 追加
-- v3.0 — 初期単一 HTML 版
-
-詳細な変更履歴は [`CHANGELOG.md`](CHANGELOG.md)。
+現行バージョンは `src/ui/versionHistory.ts` の `CURRENT_VERSION`(= `package.json`
+の `version` と機械的に一致、`test/version.test.ts` が保証)が正典。ここには
+バージョン番号を重複して書かない(過去に本ファイルの記載が実際のバージョンから
+取り残された経緯があるため)。詳細な変更履歴は [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## For developers
 

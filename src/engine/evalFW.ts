@@ -1,7 +1,8 @@
 /**
  * SonicWall ファイアウォール評価。
  * 元: src/facet-core.js (legacy) の WELL_KNOWN_SVC / resolveSvc / svcMatch / objContains / evalFW。
- * ロジックは無変更(Sprint 1 で svcMatch を双方向 overlap 判定に修正した状態を維持)。
+ * Sprint 1 で svcMatch を双方向 overlap 判定に修正、全機能監査 High-5 で未解決 service の
+ * 挙動を permissive → no-match に変更(address-object 側との非対称性を解消)。
  */
 
 import { inSubnet, ipToInt, subnetOf } from './ip';
@@ -53,8 +54,13 @@ export function resolveSvc(
 
 /**
  * ルール側 service spec と要求側 service spec の双方向 overlap 判定。
- * - どちらか any → match
- * - どちらか未知 → 過剰拒否を避けて permissive(従来挙動を踏襲)
+ * - どちらか any(null) → match
+ * - どちらか未知(undefined: typo・大文字小文字違い・未対応の service-group 参照等で
+ *   解決できなかった spec) → no-match(High-5 監査対応。以前は「過剰拒否を避けて
+ *   permissive」だったが、address-object 側(objContains)は未知名を no-match で
+ *   扱っており非対称だった。FWレビューが主目的のツールで、typoにより過剰許可の
+ *   ルールが常に「マッチ=許可」側へ倒れるのは安全側優先の方針と逆行するため、
+ *   address 側と挙動を統一した)。
  * - 両方解決済み → プロトコル一致(どちらか null は wildcard)+ ポート範囲 overlap
  */
 export function svcMatch(
@@ -65,7 +71,7 @@ export function svcMatch(
   const r = resolveSvc(svc, ruleSpec);
   const q = resolveSvc(svc, reqSpec);
   if (r === null || q === null) return true;
-  if (r === undefined || q === undefined) return true;
+  if (r === undefined || q === undefined) return false;
   if (r.proto && q.proto && r.proto !== q.proto) return false;
   if (r.from == null || q.from == null) return true;
   return !(r.to! < q.from || q.to! < r.from);
