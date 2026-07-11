@@ -30,10 +30,15 @@ header.facet-header{position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);
 .ver{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--gold-lt);background:rgba(201,168,106,.08);border:1px solid var(--hair-strong);padding:3px 9px;border-radius:999px;margin-left:8px;text-transform:uppercase;vertical-align:3px;cursor:pointer;transition:background .2s,border-color .2s}
 .ver:hover{background:rgba(201,168,106,.18);border-color:var(--gold)}
 .headmeta{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em;text-transform:uppercase}
+.headright{display:flex;align-items:center;gap:16px}
+.home-btn{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);background:transparent;border:1px solid var(--hair-strong);padding:6px 13px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .2s,border-color .2s,color .2s}
+.home-btn:hover{background:rgba(201,168,106,.1);border-color:var(--gold);color:var(--gold-lt)}
+.home-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 /* Sprint 5.5: .bar は display:flex; flex-wrap:nowrap のため、ブランド行 + headmeta の
  * 合計幅が収まらない狭い画面ではページ全体が横スクロールしてしまっていた
  * (headmeta が画面外まで押し出されるだけで、折り返しも非表示もされなかったため)。
- * 情報量の少ない装飾的要素から優先的に隠して幅を確保する。 */
+ * 情報量の少ない装飾的要素から優先的に隠して幅を確保する。home-btn は常時設置の
+ * 要件のため隠さない対象。 */
 @media (max-width:640px){.headmeta{display:none}}
 @media (max-width:480px){.sub{display:none}}
 .stepper{border-top:1px solid var(--hair);background:rgba(0,0,0,.2)}

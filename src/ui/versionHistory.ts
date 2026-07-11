@@ -19,9 +19,21 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.17.2';
+export const CURRENT_VERSION = '4.18.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.18.0',
+    date: '2026-07-11',
+    title: 'ヘッダーに「ホームに戻る」ボタンを常時設置',
+    changes: [
+      '[新機能] どのフェーズからでも一気にPhase 00(モード選択)まで戻れる' +
+        '「⌂ ホームに戻る」ボタンをヘッダーに常時表示。誤操作防止のため、' +
+        'クリック時に「選択した機種・トポロジー・投入したコンフィグ・検証結果は' +
+        'すべて破棄されます」という確認ダイアログを表示してから実行する' +
+        '(既存の RESET アクションを使用、機能自体は元々存在したがUIから未接続だった)。',
+    ],
+  },
   {
     version: '4.17.2',
     date: '2026-07-11',

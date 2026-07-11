@@ -8,14 +8,22 @@ import { useRef, useState } from 'react';
 import { Stepper } from './Stepper';
 import { VersionHistoryModal } from './VersionHistoryModal';
 import { CURRENT_VERSION } from '../versionHistory';
+import { useApp } from '../store';
 
 export function Header() {
+  const { dispatch } = useApp();
   const [showHistory, setShowHistory] = useState(false);
   const verBtnRef = useRef<HTMLButtonElement>(null);
 
   function closeHistory() {
     setShowHistory(false);
     verBtnRef.current?.focus();
+  }
+
+  function goHome() {
+    if (!window.confirm('ホームに戻ります。選択した機種・トポロジー・投入したコンフィグ・検証結果は' +
+      'すべて破棄されます。よろしいですか?')) return;
+    dispatch({ type: 'RESET' });
   }
 
   return (
@@ -33,7 +41,16 @@ export function Header() {
             v{CURRENT_VERSION}
           </button>
         </div>
-        <span className="headmeta">Static Verification · L1–L3 + Firewall Policy + Hardening + Capability</span>
+        <div className="headright">
+          <span className="headmeta">Static Verification · L1–L3 + Firewall Policy + Hardening + Capability</span>
+          <button
+            className="home-btn"
+            onClick={goHome}
+            title="ホームに戻る(すべて破棄されます)"
+          >
+            ⌂ ホームに戻る
+          </button>
+        </div>
       </div>
       <Stepper />
       {showHistory && <VersionHistoryModal onClose={closeHistory} />}
