@@ -131,6 +131,41 @@ describe('parseCisco', () => {
   });
 });
 
+describe('parseCisco — trunk allowed vlan none / remove(全機能監査 High-1)', () => {
+  const cfg =
+    'hostname NONE-TEST\n' +
+    'interface GigabitEthernet1/0/1\n switchport mode trunk\n switchport trunk allowed vlan none\n!\n' +
+    'interface GigabitEthernet1/0/2\n switchport mode trunk\n switchport trunk allowed vlan 10,20,30\n' +
+    ' switchport trunk allowed vlan remove 20\n!\n';
+  const p = parseCisco(cfg);
+
+  it('vlan none は trunkAllowed=[] のまま、trunkAllowedExplicit=true になる', () => {
+    expect(p.interfaces['GigabitEthernet1/0/1']!.trunkAllowed).toEqual([]);
+    expect(p.interfaces['GigabitEthernet1/0/1']!.trunkAllowedExplicit).toBe(true);
+  });
+  it('vlan remove は指定VLANをtrunkAllowedから除外する', () => {
+    expect(p.interfaces['GigabitEthernet1/0/2']!.trunkAllowed.sort()).toEqual(['10', '30']);
+  });
+});
+
+describe('parseCisco — no プレフィックスの誤読防止(全機能監査 High-2)', () => {
+  const cfg =
+    'hostname NO-TEST\n' +
+    'interface GigabitEthernet1/0/1\n switchport mode trunk\n no switchport mode trunk\n!\n' +
+    'interface GigabitEthernet1/0/2\n no spanning-tree bpduguard enable\n!\n';
+  const p = parseCisco(cfg);
+
+  it('"no switchport mode trunk" は switchport mode trunk として誤読されない', () => {
+    /* 1行目で trunk が設定された後、no 行は「認識済みだが適用しない」扱いで
+     * 無視されるため、mode は最後に肯定的に設定された値(trunk)のまま変化しない
+     * ことを確認する(= no 行が誤って別の値を上書き設定しないことが本テストの主眼)。 */
+    expect(p.interfaces['GigabitEthernet1/0/1']!.mode).toBe('trunk');
+  });
+  it('"no spanning-tree bpduguard enable" は bpduguard を有効化しない', () => {
+    expect(p.interfaces['GigabitEthernet1/0/2']!.bpduguard).toBe(false);
+  });
+});
+
 const sw = parseSonicWall(SMP_SW);
 
 describe('parseSonicWall', () => {
@@ -253,6 +288,9 @@ describe('svcMatch (bidirectional overlap) — Sprint 1 で修正', () => {
   it('req=udp/443 は deny(プロトコル不一致)', () => {
     expect(evalFW(sw, 'POS', 'WAN', '192.168.20.5', '203.0.113.5', 'udp/443').action).toBe('deny');
   });
+  it('req が typo/未定義の service-object 参照(解決不能)の場合は deny(全機能監査 High-5、旧: permissiveでallow)', () => {
+    expect(evalFW(sw, 'POS', 'WAN', '192.168.20.5', '203.0.113.5', 'svc-htttps-typo').action).toBe('deny');
+  });
 });
 
 describe('objContains — 組み込みアドレスグループ "<Zone> Subnets"(Sprint 4 S4-3)', () => {
@@ -282,8 +320,29 @@ const R = makeDev('R1', 'router', rm, sw);
 const W1 = makeDev('SW1', 'switch', sm, c1);
 const W2 = makeDev('SW2', 'switch', sm, c2);
 [R, W1, W2].forEach((d) => mapToPorts(d));
-const state: AppState = { router: R, switches: [W1, W2], devices: [R, W1, W2], topoMode: 'star', links: [] };
-state.links = autoLinks(state);
+/* SW1/SW2 とも X0(タグ付き VLAN10/20 サブIFがマージされた LAN 側ポート)へ
+ * アップリンクする配線を明示(手動トポロジーで実現可能な構成)。
+ * 以前は topoMode:'star' + autoLinks() に任せていたが、High-4 監査対応で
+ * autoLinks() の star モードがスイッチごとに異なるルータポートを割り当てる
+ * ようになったため、SW2 が X1(このサンプルでは WAN 側)に繋がってしまい、
+ * 本テストが検証したい「native VLAN 不一致検出」の前提(両者とも X0 経由)が
+ * 崩れていた。ここでは検証したいシナリオそのものを明示的な links で固定する
+ * (アップリンクの iface は catalog の U1 ポートから動的に取得する。
+ * C9300-24 は uplinkType='sfp+' のため 'TenGigabitEthernet1/1/1' になり、
+ * サンプルコンフィグのテキスト表記 'GigabitEthernet1/1/1' とは canonIf() 経由で
+ * のみ一致する別文字列のため、直接一致が必要な Link.iface には使えない)。 */
+const w1Uplink = W1.ports.find((p) => p.label === 'U1')!.iface;
+const w2Uplink = W2.ports.find((p) => p.label === 'U1')!.iface;
+const state: AppState = {
+  router: R,
+  switches: [W1, W2],
+  devices: [R, W1, W2],
+  topoMode: 'manual',
+  links: [
+    { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: w1Uplink } },
+    { a: { key: 'R1', iface: 'X0' }, b: { key: 'SW2', iface: w2Uplink } },
+  ],
+};
 const V = verify(state);
 
 describe('full verify', () => {
@@ -335,6 +394,72 @@ describe('L2 — switchport mode 既定挙動モデル化(Sprint 3 P3-3)', () =>
   it('switchport mode が明示されていれば発火しない', () => {
     const V = buildBare('hostname OK\nvlan 10\n name A\ninterface GigabitEthernet1/0/1\n switchport mode access\n switchport access vlan 10\n!\n');
     expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('dynamic auto'))).toBe(false);
+  });
+
+  it('trunk allowed vlan none(明示的な全遮断)は「未指定=全許可扱い」を誤って出さない(全機能監査 High-1)', () => {
+    const V = buildBare('hostname NONE\ninterface GigabitEthernet1/0/1\n switchport mode trunk\n switchport trunk allowed vlan none\n!\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('allowed vlan 未指定'))).toBe(false);
+  });
+  it('trunk allowed vlan が本当に未指定の場合は引き続き lack が出る(回帰確認)', () => {
+    const V = buildBare('hostname UNSPEC\ninterface GigabitEthernet1/0/1\n switchport mode trunk\n!\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('allowed vlan 未指定'))).toBe(true);
+  });
+});
+
+describe('L2 — SonicWall vlan-subif(タグ付きサブIFのみ)とのモード判定対称性(全機能監査 High-3)', () => {
+  const rmTz = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+  const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+  /* C1000-24 の U1(アップリンク)ポートの iface を先に確定させ、リンクと
+   * switchport 設定の両方をこの実際の iface 名に揃える(down port の prefix
+   * と取り違えて構成が port.cfg に一切マッピングされない、という事故を防ぐ)。 */
+  const uplinkIface = switchPorts(sm1000).find((p) => p.label === 'U1')!.iface;
+
+  /* X0 には plain な untagged interface を作らず、X0:V10(タグ付きサブIF)のみを
+   * 定義する。これにより port.cfg.mode='vlan-subif' かつ subVlans は未設定
+   * (マージが一度も起きないため)という「native VLAN 概念が存在しない」状態を作る。 */
+  function buildVlanSubifOnly(switchportBody: string) {
+    const rTz = makeDev('R1', 'router', rmTz,
+      parseSonicWall('interface X0:V10\n vlan 10\n zone LAN\n ip 192.168.10.1 netmask 255.255.255.0\n'));
+    const switchCfg = 'hostname SW1\nvlan 10\n name A\ninterface ' + uplinkIface + '\n' + switchportBody + '!\n';
+    const swDev = makeDev('SW1', 'switch', sm1000, parseCisco(switchCfg));
+    [rTz, swDev].forEach((d) => mapToPorts(d));
+    const st: AppState = {
+      router: rTz, switches: [swDev], devices: [rTz, swDev], topoMode: 'manual',
+      links: [{ a: { key: 'R1', iface: 'X0' }, b: { key: 'SW1', iface: uplinkIface } }],
+    };
+    return verify(st);
+  }
+
+  it('スイッチ側が trunk + 一致する allowed vlan なら誤って「両端モード不一致」にならない(旧: 誤検知)', () => {
+    const V = buildVlanSubifOnly(' switchport mode trunk\n switchport trunk allowed vlan 10\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('両端モード不一致'))).toBe(false);
+  });
+  it('スイッチ側が access のままなら「両端モード不一致」を検出する(旧: 検知漏れ)', () => {
+    const V = buildVlanSubifOnly(' switchport mode access\n switchport access vlan 10\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('両端モード不一致'))).toBe(true);
+  });
+  it('native 概念が無い SonicWall 側に対し、スイッチの非既定 native vlan を誤って不一致判定しない(旧: 誤検知)', () => {
+    const V = buildVlanSubifOnly(' switchport mode trunk\n switchport trunk native vlan 50\n switchport trunk allowed vlan 10\n');
+    expect(V.findings.some((f) => f.cat === 'L2' && f.desc.includes('Native VLAN'))).toBe(false);
+  });
+});
+
+describe('autoLinks — star トポロジのポート重複割当バグ修正(全機能監査 High-4)', () => {
+  const rmTz = CATALOG.router.filter((x) => x.id === 'TZ570')[0]!;
+  const sm1000 = CATALOG.switch.filter((x) => x.id === 'C1000-24')[0]!;
+
+  it('2台以上のスイッチが star モードでルータの同一物理ポートに割り当てられない', () => {
+    const r = makeDev('R1', 'router', rmTz, parseSonicWall('interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n'));
+    const sw1 = makeDev('SW1', 'switch', sm1000, parseCisco('hostname SW1\n'));
+    const sw2 = makeDev('SW2', 'switch', sm1000, parseCisco('hostname SW2\n'));
+    const sw3 = makeDev('SW3', 'switch', sm1000, parseCisco('hostname SW3\n'));
+    [r, sw1, sw2, sw3].forEach((d) => mapToPorts(d));
+    const st: AppState = { router: r, switches: [sw1, sw2, sw3], devices: [r, sw1, sw2, sw3], topoMode: 'star', links: [] };
+    const links = autoLinks(st);
+    expect(links.length).toBe(3);
+    const routerIfaces = links.map((l) => l.a.iface);
+    expect(new Set(routerIfaces).size).toBe(3);
+    expect(routerIfaces[0]).toBe('X0');
   });
 });
 
@@ -485,6 +610,31 @@ describe('verify — 静的ルート next-hop 到達性(Sprint 4 S4-2)', () => {
   it('next-hop が既知サブネット内なら発火しない', () => {
     const V = buildRouteState('10.0.0.254');
     expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('next-hop'))).toBe(false);
+  });
+});
+
+describe('verify — DHCP WAN(IPリテラル無し)構成でのL3/FWチェック(全機能監査 High-7)', () => {
+  const rmTz5 = CATALOG.router.filter((x) => x.id === 'TZ270')[0]!;
+
+  it('WANがDHCP取得(IP未設定)の場合、next-hop到達性チェックが誤ってlackを出さない(旧: 常に誤検知)', () => {
+    const swDhcp = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'interface X1\n zone WAN\n ip-assignment WAN dhcp\n' +
+        'route-policy destination 0.0.0.0 0.0.0.0 gateway 203.0.113.1\n',
+    );
+    expect(swDhcp.routes.length).toBe(1);
+    const Rd = makeDev('R1', 'router', rmTz5, swDhcp);
+    const V = verify({ router: Rd, switches: [], devices: [Rd], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'L3' && f.desc.includes('next-hop'))).toBe(false);
+  });
+  it('WANがDHCP取得でも「内部→WANのallowルールが無い」FWチェックは機能する(旧: hasWan=falseで丸ごとスキップ)', () => {
+    const swDhcpNoRule = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'interface X1\n zone WAN\n ip-assignment WAN dhcp\n',
+    );
+    const Rd = makeDev('R1', 'router', rmTz5, swDhcpNoRule);
+    const V = verify({ router: Rd, switches: [], devices: [Rd], topoMode: 'star', links: [] });
+    expect(V.findings.some((f) => f.cat === 'FW' && f.desc.includes('WAN'))).toBe(true);
   });
 });
 
@@ -960,5 +1110,28 @@ describe('shadowed / permissive', () => {
   });
   it('シャドウされたルールが SEC で警告される', () => {
     expect(V2.findings.some((f) => f.cat === 'SEC' && f.desc.includes('シャドウ'))).toBe(true);
+  });
+});
+
+describe('SEC — WAN絡みの any/any/any 除外条件の修正(全機能監査 High-6)', () => {
+  it('WAN → LAN の any/any/any 許可は err で検出される(旧: 誤って除外されていた)', () => {
+    const swWan = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'interface X1\n zone WAN\n ip 203.0.113.2 netmask 255.255.255.248\n' +
+        'access-rule from WAN to LAN\n action allow\n source any\n destination any\n service any\n',
+    );
+    const Rw = makeDev('R1', 'router', rm, swWan);
+    const V3 = verify({ router: Rw, switches: [], devices: [Rw], topoMode: 'star', links: [] });
+    expect(V3.findings.some((f) => f.cat === 'SEC' && f.level === 'err' && f.desc.includes('WAN') && f.desc.includes('任意の宛先'))).toBe(true);
+  });
+  it('LAN → WAN の any/any/any 許可(一般的な全許可)は引き続き対象外', () => {
+    const swWan = parseSonicWall(
+      'interface X0\n zone LAN\n ip 10.0.0.1 netmask 255.255.255.0\n' +
+        'interface X1\n zone WAN\n ip 203.0.113.2 netmask 255.255.255.248\n' +
+        'access-rule from LAN to WAN\n action allow\n source any\n destination any\n service any\n',
+    );
+    const Rw = makeDev('R1', 'router', rm, swWan);
+    const V3 = verify({ router: Rw, switches: [], devices: [Rw], topoMode: 'star', links: [] });
+    expect(V3.findings.some((f) => f.cat === 'SEC' && f.desc.includes('any/any/any'))).toBe(false);
   });
 });

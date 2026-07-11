@@ -89,6 +89,29 @@ function electStpRootAndBlockingEdges(
   return { root, blockingEdges };
 }
 
+/* ---- High-3 監査対応: trunk/access モード判定を a/b 対称にするヘルパー ----
+ * SonicWall のタグ付き VLAN サブインターフェイスは mode==='vlan-subif'(mkif 参照)
+ * または mapToPorts() でのマージ結果として subVlans が付く。以前は `ca.mode ||
+ * (ca.subVlans ? 'trunk' : null)` という補完が Link の a 側にしか適用されず、
+ * かつ 'vlan-subif' という文字列自体は 'trunk' と一致しないため、b 側に来た場合や
+ * ca.mode が既に 'vlan-subif' で埋まっている場合(補完式が短絡評価で素通りする)に
+ * 判定が食い違っていた。isTrunkLike() で両側を同一基準にする。 */
+function isTrunkLike(cfg: ParsedInterface): boolean {
+  return cfg.mode === 'trunk' || cfg.mode === 'vlan-subif' || !!(cfg.subVlans && cfg.subVlans.length);
+}
+
+/* ---- High-3 監査対応: native VLAN(タグ無しフレームが属するVLAN)の比較対象を
+ * 正しく絞るヘルパー。「Cisco の明示的 trunk」または「SonicWall の素の(vlanTag
+ * 無しの)物理/VLANインターフェイスに、mapToPorts() で1つ以上のタグ付き
+ * サブインターフェイスがマージされている」場合のみ native VLAN 概念が成立する
+ * (前者は native vlan コマンド、後者は untagged な素インターフェイス自体が
+ * 暗黙の native に相当)。cfg.mode==='vlan-subif' はタグ付きサブインターフェイス
+ * 自身が port.cfg の起点になった(＝untaggedな素インターフェイスが存在しない)
+ * ケースを指し、この場合は native という概念自体が無いため対象外とする。 */
+function hasNativeVlan(cfg: ParsedInterface): boolean {
+  return cfg.mode === 'trunk' || (cfg.mode === null && !!(cfg.subVlans && cfg.subVlans.length));
+}
+
 export function verify(state: AppState): VerifyResult {
   const F: Finding[] = [];
   const devs: Device[] = state.devices;
@@ -130,7 +153,10 @@ export function verify(state: AppState): VerifyResult {
           'vlan ' + c.accessVlan + ' を定義。');
         setPort(d, p.iface, 'lack');
       }
-      if (c.mode === 'trunk' && (!c.trunkAllowed || !c.trunkAllowed.length)) {
+      if (c.mode === 'trunk' && (!c.trunkAllowed || !c.trunkAllowed.length) && !c.trunkAllowedExplicit) {
+        /* High-1 監査対応: `switchport trunk allowed vlan none` で明示的に全遮断
+         * されている場合は trunkAllowedExplicit=true になり、ここに来ない
+         * (「未指定=全許可扱い」という正反対の警告を出さないため)。 */
         add('L2', 'lack', d.key + ':' + p.iface,
           'トランクの allowed vlan 未指定(全許可扱い)。',
           '明示しないと意図しないVLANが透過します。',
@@ -181,11 +207,11 @@ export function verify(state: AppState): VerifyResult {
       setPort(db, L.b.iface, 'lack');
       return;
     }
-    const ma = ca.mode || (ca.subVlans ? 'trunk' : null);
-    const mb = cb.mode;
-    if (ma && mb && ((ma === 'trunk') !== (mb === 'trunk'))) {
+    const maLabel = ca.mode || (ca.subVlans && ca.subVlans.length ? 'vlan-subif' : null);
+    const mbLabel = cb.mode || (cb.subVlans && cb.subVlans.length ? 'vlan-subif' : null);
+    if (maLabel && mbLabel && (isTrunkLike(ca) !== isTrunkLike(cb))) {
       add('L2', 'err', tag,
-        '両端モード不一致(' + ma + ' ↔ ' + mb + ')。',
+        '両端モード不一致(' + maLabel + ' ↔ ' + mbLabel + ')。',
         '片側access/片側trunkはVLANタグ処理が食い違い疎通不可。',
         '両端を trunk に統一。');
       setPort(da, L.a.iface, 'err');
@@ -193,7 +219,7 @@ export function verify(state: AppState): VerifyResult {
     }
     const na = ca.trunkNative || '1';
     const nb = cb.trunkNative || '1';
-    if ((ca.mode === 'trunk' || ca.subVlans) && cb.mode === 'trunk' && na !== nb) {
+    if (hasNativeVlan(ca) && hasNativeVlan(cb) && na !== nb) {
       add('L2', 'err', tag,
         'Native VLAN 不一致(' + na + ' ↔ ' + nb + ')。',
         'ネイティブVLAN不一致はタグ無しフレームが別VLANへ漏れる典型ミス。',
@@ -409,6 +435,7 @@ export function verify(state: AppState): VerifyResult {
 
   /* ---- L3 ---- */
   const subnets: Subnet[] = buildSubnets(state);
+  function isWan(z: string | undefined | null): boolean { return /WAN/i.test(z || ''); }
   devs.forEach((d) => {
     if (d.role !== 'switch') return;
     const used: Record<string, 1> = {};
@@ -467,11 +494,21 @@ export function verify(state: AppState): VerifyResult {
   /* ---- 静的ルート(ip route / route-policy)の next-hop 到達性(Sprint 4 S4-2) ----
    * これまで parseCisco / parseSonicWall がパースする routes は一切参照されていなかった。
    * next-hop が既知のどのサブネット(構成済み IF から導出)にも属さない場合、
-   * その静的ルートはパケットを送り出せず機能しない。 */
+   * その静的ルートはパケットを送り出せず機能しない。
+   * High-7 監査対応: WAN側がDHCP取得(IPリテラルがconfig上に無い)の場合、buildSubnets()
+   * はそのインターフェイスを一切 subnets に含めない(ip/maskが無いため)。この状態で
+   * 「正当な ip route 0.0.0.0 0.0.0.0 <ISPゲートウェイ>」を評価すると、ISP側の
+   * サブネットがそもそも既知データに存在しないため常に誤って lack 判定になっていた。
+   * DHCP WAN(zone=WAN かつ ip未設定)のインターフェイスが1つでもある機器では、
+   * そのISP側サブネットが未知である以上、next-hop到達性を静的には判定できないため、
+   * その機器の静的ルートについてはこのチェック自体をスキップする。 */
   devs.forEach((d) => {
     if (!d.parsed) return;
     const routes = (d.parsed as { routes?: Array<{ dst: string; mask: string; nh: string }> }).routes;
     if (!routes || !routes.length) return;
+    const ifs = (d.parsed as { interfaces: Record<string, ParsedInterface> }).interfaces;
+    const hasDhcpWan = Object.keys(ifs).some((k) => isWan(ifs[k]!.zone) && !ifs[k]!.ip);
+    if (hasDhcpWan) return;
     routes.forEach((rt) => {
       const reachable = subnets.some((s) => inSubnet(rt.nh, s.cidr));
       if (!reachable) {
@@ -485,8 +522,14 @@ export function verify(state: AppState): VerifyResult {
 
   /* ---- FW ---- */
   const matrix: ReachabilityMatrix = buildMatrix(state, subnets);
-  function isWan(z: string | undefined | null): boolean { return /WAN/i.test(z || ''); }
-  const hasWan = subnets.some((s) => isWan(s.zone));
+  /* High-7 監査対応: hasWan を subnets(IPリテラルがあるIFのみ)基準にすると、DHCP WAN
+   * (IPリテラルなし)しか無い構成では「WANが存在する」という事実そのものを検知できず、
+   * 「内部→WANのallowルールが無い」という主要チェックが丸ごと無音でスキップされていた。
+   * ルータの生の interfaces(IPの有無を問わない)からも WAN ゾーンの有無を見る。 */
+  const routerIfs = router.parsed ? (router.parsed.interfaces as Record<string, ParsedInterface>) : {};
+  const hasWan =
+    subnets.some((s) => isWan(s.zone)) ||
+    Object.keys(routerIfs).some((k) => isWan(routerIfs[k]!.zone));
   if (hasWan) {
     subnets.forEach((s) => {
       if (isWan(s.zone)) return;
@@ -538,21 +581,32 @@ export function verify(state: AppState): VerifyResult {
     const rules: AccessRule[] = (router.parsed as SonicWallParsed).rules;
     rules.forEach((rl, i) => {
       if (rl.enabled === false) return;
-      if (
+      const broad =
         rl.action === 'allow' &&
         /^any$/i.test(rl.src) &&
         /^any$/i.test(rl.dst) &&
-        /^any$/i.test(rl.service) &&
-        !isWan(rl.from) &&
-        isWan(rl.to) === false &&
-        rl.from.toUpperCase() !== rl.to.toUpperCase()
-      ) {
-        add('SEC', 'lack',
+        /^any$/i.test(rl.service);
+      if (!broad) return;
+      /* High-6 監査対応: 従来は `!isWan(rl.from) && isWan(rl.to)===false` という
+       * 除外条件のため、from・toどちらか一方でもWANが絡めば式全体がfalseになり、
+       * WAN→LAN(外部から社内への全許可、最悪級の設定ミス)も一緒に除外されていた。
+       * LAN→WAN(一般的なインターネット向け全許可)だけを除外対象とし、
+       * WANが送信元の場合は独立して常にerrで検知する。 */
+      if (isWan(rl.from)) {
+        add('SEC', 'err',
           'ルール #' + (i + 1) + ' ' + rl.from + '→' + rl.to,
-          'any/any/any の許可ルールです。',
-          '全許可はセグメンテーションを無効化します。',
-          '必要なサービス・宛先に絞る。');
+          'WANから任意の宛先・サービスへの許可ルールです。',
+          '外部から社内ネットワークへの実質無制限アクセスを許可しています。',
+          'source/destination/service を必要な範囲に限定するか、ルールを無効化。');
+        return;
       }
+      if (isWan(rl.to)) return;
+      if (rl.from.toUpperCase() === rl.to.toUpperCase()) return;
+      add('SEC', 'lack',
+        'ルール #' + (i + 1) + ' ' + rl.from + '→' + rl.to,
+        'any/any/any の許可ルールです。',
+        '全許可はセグメンテーションを無効化します。',
+        '必要なサービス・宛先に絞る。');
     });
     const seen: Record<string, { broad: true }> = {};
     rules.forEach((rl, i) => {

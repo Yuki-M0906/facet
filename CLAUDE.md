@@ -7,11 +7,12 @@
 
 A **static** configuration analyzer for a network of **1 × SonicWall router + N × Cisco
 switches** (N ≤ 8). The user uploads device configs; FACET parses them, maps interfaces
-to a faceplate, and runs 6 categories of checks (L1/L2/STP/L3/Firewall/Hardening) +
-a 7th category (CAP, reserved for Sprint 2 capability checks), a subnet reachability
-matrix, and a hop-by-hop path trace. Audience: IT engineers doing **pre-deployment
-config review**. Aesthetic: dark charcoal + platinum-gold luxury. Runs **entirely in
-the browser** — configs are never uploaded anywhere.
+to a faceplate, and runs 7 categories of checks (L1/L2/STP/L3/Firewall/Hardening/CAP —
+CAP checks config against each device's real capability limits from `catalog.ts`, live
+since Sprint 2), a subnet reachability matrix, and a hop-by-hop path trace. Audience:
+IT engineers doing **pre-deployment config review**. Aesthetic: dark charcoal +
+platinum-gold luxury. Runs **entirely in the browser** — configs are never uploaded
+anywhere.
 
 ## The single most important invariant — DO NOT BLUR THIS
 
@@ -48,7 +49,7 @@ src/
 │   ├── components/{Header,Stepper,Faceplate,TopologyGraph,...}.tsx
 │   └── styles/global.css
 └── samples/                     ← デモ用匿名コンフィグ
-test/engine/engine.test.ts       ← Vitest 46 ケース
+test/                            ← Vitest 回帰スイート(version/engine/builder の3ファイル)
 dist/index.html                  ← ビルド成果物 (配布する単一 HTML)
 docs/                            ← ARCHITECTURE / VERIFICATION-RULES / ROADMAP /
                                    PARSER-NOTES / PUBLISHING / SPRINT-1.5-DESIGN
@@ -64,7 +65,7 @@ tools/docs/                      ← Word ユーザガイド生成ツール
 ```
 npm install         # 初回のみ
 npm run dev         # 開発(HMR、http://localhost:5173)
-npm test            # Vitest 全 46 ケース
+npm test            # Vitest 全ケース(version/engine/builder の3ファイル)
 npm run build       # dist/index.html を生成(単一 HTML、〜220KB)
 npm run preview     # dist/ をローカル配信して動作確認
 ```
@@ -120,12 +121,12 @@ Matrix cells: `ok` / `deny` / `nogw` / `self`(UI は ○/×/△/—)。
 
 ## Before publishing anything publicly
 
-Read `LICENSING.md` first. IP ownership clarification は Yuki さん側で「公開 OK」が確認済
-(2026-06-23)。Sprint 1.5 完了時点で Cloudflare Pages にデプロイする方向。
-公開先 URL とリポジトリ設定が決まり次第、本ドキュメントに追記する。
+Read `LICENSING.md` first。IP ownership clarification は Yuki さん側で「公開 OK」が確認済
+(2026-06-23)。Cloudflare Pages に公開済み: https://facet.yuki-mats.workers.dev
+(`docs/PUBLISHING.md` にデプロイ手順)。
 
 ## Where to continue
 
-`docs/ROADMAP.md` を参照。Sprint 1.5 (TS port) が完了したので、次の最重要は
-**Sprint 2:機材カタログ実物化**(各 SKU の正確な物理仕様 + capability matrix)。
-これが「正確な機材シミュレーション再現」という最優先要件への直接投資。
+`docs/ROADMAP.md` の「🚧 次フェーズ」節を参照(このファイルには「次はこれ」を
+重複して書かない — 過去に ROADMAP.md 側の更新だけで CLAUDE.md 側が古いまま
+放置され、新セッションが完了済みの Sprint に再着手しかけた事故があったため)。

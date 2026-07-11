@@ -76,6 +76,7 @@ function mkif(names: string[]): CurIf {
     accessVlan: null,
     trunkNative: null,
     trunkAllowed: [],
+    trunkAllowedExplicit: false,
     channel: null,
     ip: null,
     mask: null,
@@ -254,13 +255,30 @@ export function parseCisco(text: string): CiscoParsed {
       unrecognized.push({ lineNumber: li + 1, text: t });
       continue;
     }
+    if (/^no\s+/i.test(t)) {
+      /* High-2 監査対応: 以下の switchport 系正規表現には行頭アンカーが無く、
+       * `no switchport mode trunk` のような巻き戻しコマンドを肯定設定として誤読
+       * していた。`no ` 始まりの行はここで一括して「認識済みだが意図的に適用しない」
+       * 扱いにし、下の肯定パターンチェーンには一切到達させない(unrecognized には
+       * 積まない = カバレッジ計測上は「理解した行」として扱う)。 */
+      continue;
+    }
     if ((m = t.match(/^description\s+(.+)/))) cur.description = m[1]!;
     else if (/switchport mode access/.test(t)) cur.mode = 'access';
     else if (/switchport mode trunk/.test(t)) cur.mode = 'trunk';
     else if ((m = t.match(/switchport access vlan\s+(\d+)/))) cur.accessVlan = m[1]!;
     else if ((m = t.match(/switchport trunk native vlan\s+(\d+)/))) cur.trunkNative = m[1]!;
-    else if ((m = t.match(/switchport trunk allowed vlan\s+(?:add\s+)?([\d,\-]+)/))) {
+    else if (/switchport trunk allowed vlan\s+none\b/.test(t)) {
+      /* High-1 監査対応: 明示的な全VLAN遮断。trunkAllowed=[] は変わらないが、
+       * 「未指定」と区別できるようフラグを立てる(verify.ts 側で意味を分岐)。 */
+      cur.trunkAllowedExplicit = true;
+    } else if ((m = t.match(/switchport trunk allowed vlan\s+remove\s+([\d,\-]+)/))) {
+      const removed = expandVlans(m[1]!);
+      cur.trunkAllowed = cur.trunkAllowed.filter((v) => removed.indexOf(v) < 0);
+      cur.trunkAllowedExplicit = true;
+    } else if ((m = t.match(/switchport trunk allowed vlan\s+(?:add\s+)?([\d,\-]+)/))) {
       cur.trunkAllowed = cur.trunkAllowed.concat(expandVlans(m[1]!));
+      cur.trunkAllowedExplicit = true;
     } else if ((m = t.match(/channel-group\s+(\d+)\s+mode\s+(\S+)/))) {
       cur.channel = { id: m[1]!, mode: m[2]! };
     } else if ((m = t.match(/ip address\s+([\d.]+)\s+([\d.]+)\s+secondary/))) {

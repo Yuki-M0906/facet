@@ -19,9 +19,51 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.17.1';
+export const CURRENT_VERSION = '4.17.2';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.17.2',
+    date: '2026-07-11',
+    title: '全機能監査 — High重要度9件のバグ修正',
+    changes: [
+      '[修正] Cisco: `switchport trunk allowed vlan none`(明示的な全VLAN遮断)が' +
+        '未認識行として無視され、「未指定=全許可扱い」という正反対の警告が出ていた' +
+        'バグを修正。あわせて `vlan remove/except` にも対応。',
+      '[修正] Cisco: `switchport` 系の正規表現に行頭アンカーが無く、' +
+        '`no switchport mode trunk` 等の否定コマンドを肯定設定として誤読していた' +
+        'バグを修正。',
+      '[修正] SonicWall⇄Cisco間のtrunk/accessモード一致判定・native VLAN判定が' +
+        '非対称で、タグ付きVLANサブインターフェイスのみの構成に対して誤検知・検知漏れの' +
+        '両方が起きていたバグを修正(isTrunkLike/hasNativeVlanヘルパーで対称化)。',
+      '[修正] starトポロジで2台以上のスイッチがルータの同一物理ポートに接続される' +
+        '(物理的にありえない配線が生成される)バグを修正。台数分の異なるポートを' +
+        '順番に割り当てるようにした。',
+      '[修正] ファイアウォールのservice spec解決に失敗した場合(typo・大文字小文字' +
+        '違い・未対応のservice-group参照等)、従来は過剰拒否を避けてpermissive' +
+        '(マッチ扱い=許可)としていたが、address-object側の挙動(未知=no-match=安全側)' +
+        'と統一し、no-matchに変更。',
+      '[修正] SEC「any/any/any過剰許可」チェックの除外条件が広すぎて、WAN→LANの' +
+        '全許可ルール(外部から社内への実質無制限アクセス)も一緒に除外されていた' +
+        'バグを修正。',
+      '[修正] WAN側がDHCP取得(IPリテラル未記載)の構成で、静的ルートのnext-hop' +
+        '到達性チェックが正当なデフォルトルートに対して常に誤ってlackを出し、かつ' +
+        '「内部→WANのallowルールが無い」チェックが丸ごと無音でスキップされていた' +
+        'バグを修正。',
+      '[修正] 作成モードの「⟲ この機器をリセット」ボタンが入力フォームのみ初期化し、' +
+        '生成済みコンフィグ(device.config/parsed)が残留したまま古い設定で検証・' +
+        'ダウンロードが続いてしまうバグを修正。',
+      '[修正] CLAUDE.md/README.md/docs/ARCHITECTURE.mdのSprint進捗・バージョン・' +
+        'テスト件数の記載が広範に陳腐化していたのを是正。UI各所(モード選択画面・' +
+        'ヘッダー・検証中メッセージ)の「6カテゴリ」表記もCAP追加後の実態(7カテゴリ)に' +
+        '合わせて修正。docs/VERIFICATION-RULES.mdにS4-2ルールの記載を追加。',
+      '本対応はコードベース全体を13領域に分けて並行監査し、各領域を別エージェントが' +
+        '独立に再検証した上で見つかった53件の指摘のうち、深刻度Highの9件に対応した' +
+        'もの。残りの指摘は今後の対応候補として記録済み。' +
+        '回帰確認: 新規15テストケース追加・既存含め全143テストPASS、型チェック・' +
+        'ビルド成功、ブラウザでの動作確認(作成モードのリセット動作等)実施。',
+    ],
+  },
   {
     version: '4.17.1',
     date: '2026-07-08',

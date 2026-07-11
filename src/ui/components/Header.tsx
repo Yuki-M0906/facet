@@ -33,7 +33,7 @@ export function Header() {
             v{CURRENT_VERSION}
           </button>
         </div>
-        <span className="headmeta">Static Verification · L1–L3 + Firewall Policy + Hardening</span>
+        <span className="headmeta">Static Verification · L1–L3 + Firewall Policy + Hardening + Capability</span>
       </div>
       <Stepper />
       {showHistory && <VersionHistoryModal onClose={closeHistory} />}

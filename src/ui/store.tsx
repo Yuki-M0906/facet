@@ -94,6 +94,7 @@ export type Action =
   | { type: 'CLEAR_INTAKE' }
   | { type: 'INIT_BUILDER_DRAFTS' }
   | { type: 'SET_BUILDER_DRAFT'; key: string; draft: BuilderDraft }
+  | { type: 'RESET_DEVICE_DRAFT'; key: string; draft: BuilderDraft }
   | { type: 'GENERATE_CONFIGS' }
   | { type: 'RUN_VERIFY' }
   | { type: 'SET_FILTER'; filter: FindingCategory | 'all' }
@@ -319,6 +320,17 @@ function reducer(s: UIState, a: Action): UIState {
     }
 
     case 'SET_BUILDER_DRAFT': {
+      return { ...s, builderDrafts: { ...s.builderDrafts, [a.key]: a.draft } };
+    }
+
+    case 'RESET_DEVICE_DRAFT': {
+      /* High-8 監査対応: 従来の「⟲ この機器をリセット」は SET_BUILDER_DRAFT のみを
+       * dispatch し、device.config/parsed/ports は残留していた。「生成済み ✓」表示や
+       * RUN_VERIFY は d.config を直接見るため、リセット後も古い設定に基づく検証・
+       * ダウンロードがサイレントに続いてしまっていた。builderDrafts の初期化と同時に
+       * 対象 device の生成済みコンフィグも clearDevice() で消す。 */
+      const dev = [s.router, ...s.switches].filter((d): d is Device => !!d).find((d) => d.key === a.key);
+      if (dev) clearDevice(dev);
       return { ...s, builderDrafts: { ...s.builderDrafts, [a.key]: a.draft } };
     }
 

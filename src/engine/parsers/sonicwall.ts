@@ -22,6 +22,7 @@ function mkif(name: string, vlanTag: string | null): ParsedInterface {
     shutdown: false,
     mode: vlanTag ? 'vlan-subif' : null,
     trunkAllowed: vlanTag ? [vlanTag] : [],
+    trunkAllowedExplicit: false,
     /* Cisco 固有 field の既定値(型整合のため) */
     speed: null,
     duplex: null,

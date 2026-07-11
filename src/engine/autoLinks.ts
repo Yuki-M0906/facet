@@ -25,10 +25,21 @@ export function autoLinks(state: AppState): Link[] {
     return u ? u.iface : upOf(d);
   }
   const rLan = r.ports.filter((p) => p.label === 'X0')[0] ? 'X0' : r.ports[0]!.iface;
+  /* High-4 監査対応: 以前は rLan(常に同一の1ポート)を全スイッチが共有しており、
+   * star トポロジで2台以上のスイッチが「ルータの同一物理ポートに接続」という
+   * 物理的にありえない配線が生成されていた。ルータのポートを台数分だけ順番に
+   * 割り当てる(0番目は従来通り X0 優先、以降は r.ports の並び順)。ルータの
+   * ポート数よりスイッチ台数が多い極端なケースのみ rLan にフォールバックする
+   * (その場合は手動トポロジーでの配線指定が必要)。 */
+  function lanPortAt(i: number): string {
+    if (i === 0) return rLan;
+    const p = r.ports[i];
+    return p ? p.iface : rLan;
+  }
 
   if (mode === 'star') {
-    sw.forEach((s) => {
-      links.push({ a: { key: r.key, iface: rLan }, b: { key: s.key, iface: upOf(s) } });
+    sw.forEach((s, i) => {
+      links.push({ a: { key: r.key, iface: lanPortAt(i) }, b: { key: s.key, iface: upOf(s) } });
     });
   } else if (mode === 'cascade') {
     if (sw[0]) {

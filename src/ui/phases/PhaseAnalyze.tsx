@@ -3,7 +3,7 @@
  * 検証自体は RUN_VERIFY アクションで同期実行済。ここでは演出 2.5 秒を消化して results へ遷移。
  *
  * NOTE: この演出時間は v3.1.0 と同等(=互換性のため維持)。
- * Sprint 2 以降で「演出を消す」または「実所要時間表示」に置き換える候補。
+ * 将来的に「演出を消す」または「実所要時間表示」に置き換える候補。
  */
 
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ const MSGS = [
   'computing L3 reachability',
   'evaluating firewall policy',
   'running hardening checks',
+  'checking device capability limits',
 ];
 
 export function PhaseAnalyze() {

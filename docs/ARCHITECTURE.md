@@ -91,15 +91,16 @@ interface Finding {
 }
 ```
 
-`CAP` カテゴリは Sprint 2(機材カタログ実物化)で本格運用予定。
-現状は枠だけ確保し、`verify` 集計では常に 0 件。
+`CAP` カテゴリは Sprint 2(機材カタログ実物化)で本格運用開始済み。
+`catalog.ts` の各 SKU の `capabilities` フィールド(VLAN/SVI/ACL 数上限、
+STP variant 対応可否等)と config を突合し、超過・非対応を検出する。
 
 ## CATALOG はデータ、ロジックではない
 
-`src/engine/catalog.ts` の `CATALOG` 定数は 15 SKU の代表ポート構成を持つだけの
-TypeScript リテラル。Sprint 2 で各 SKU に `capabilities` フィールド
-(L3 対応、Max VLAN、PoE、STP variant、対応 OS バージョン等)を追加し、
-"検証" を "シミュレーション" に格上げする。
+`src/engine/catalog.ts` の `CATALOG` 定数は 15 SKU の代表ポート構成に加え、
+Sprint 2 で追加した `capabilities` フィールド(L3 対応、Max VLAN、PoE、
+STP variant、対応 OS バージョン等)を持つ TypeScript リテラル。
+CAP カテゴリ(`verify.ts`)がこのデータと config を突合して検証する。
 
 ルータ:TZ270 / TZ370 / TZ470 / TZ570 / TZ670 / NSa2700 / NSa3700。
 スイッチ:C1000-24/48 / C2960X-24/48 / C9200-24/48 / C9300-24/48。
