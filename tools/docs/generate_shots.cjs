@@ -80,19 +80,31 @@ async function main() {
      * この撮影中だけ一時的に無効化する(表示上の見た目のみ、機能には影響しない)。 */
     await page.addStyleTag({ content: 'header.facet-header{position:static !important}' });
 
-    /* 経路トレースは既定選択のまま「トレース」を押し、実際のホップ結果を見せる */
-    await safe('経路トレース実行', () => page.getByRole('button', { name: 'トレース', exact: true }).click());
+    /* v4.17.0 以降、診断パネル(経路トレース/論理接続図/シャーシ/マトリクス)は
+     * 折りたたみ式 <details> に入っている。撮影前にすべて展開しないと、パネル単体
+     * スクリーンショットが「畳まれた見出しバー」だけになってしまう。 */
+    await page.evaluate(() => document.querySelectorAll('#diagnostics details').forEach((d) => { d.open = true; }));
     await page.waitForTimeout(200);
-    const panelFiles = [
-      '05_report_trace.png',
-      '06_report_topology.png',
-      '07_report_chassis.png',
-      '08_report_matrix.png',
-      '09_report_findings.png',
+
+    /* 経路トレースは既定選択のまま「トレース」を押し、実際のホップ結果を見せる
+     * (展開後でないとボタンが非表示でクリックできない)。 */
+    await safe('経路トレース実行', () => page.getByRole('button', { name: 'トレース', exact: true }).click());
+    await page.waitForTimeout(300);
+
+    /* .panel の並び順: 0=概要ヒーロー(04で全画面撮影済), 1=指摘一覧,
+     * 2=経路トレース, 3=論理接続図, 4=シャーシ, 5=マトリクス。
+     * v4.17.0 の結果画面再構成で hero/findings パネルが増え、診断が <details> 化した
+     * ため、旧来の 0〜4 連番マッピングでは中身が撮れていなかった。実インデックスに修正。 */
+    const shotByPanel = [
+      { file: '05_report_trace.png', idx: 2 },
+      { file: '06_report_topology.png', idx: 3 },
+      { file: '07_report_chassis.png', idx: 4 },
+      { file: '08_report_matrix.png', idx: 5 },
+      { file: '09_report_findings.png', idx: 1 },
     ];
     const panels = page.locator('.panel');
-    for (let i = 0; i < panelFiles.length; i++) {
-      await safe(panelFiles[i], () => panels.nth(i).screenshot({ path: path.join(OUT, panelFiles[i]) }));
+    for (const s of shotByPanel) {
+      await safe(s.file, () => panels.nth(s.idx).screenshot({ path: path.join(OUT, s.file) }));
     }
     await page.close();
   }
@@ -151,6 +163,23 @@ async function main() {
     });
     await ciscoPanel.scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(OUT, '11_build_cisco.png') });
+
+    await page.close();
+  }
+  await server.close();
+
+  /* ===== ③ 簡易検証モード(単体機器のクイックチェック)の入口 ===== */
+  {
+    server = await startPreviewServer();
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
+    console.log('簡易検証モードを撮影中...');
+
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /このモードで進む/ }).nth(2).click();
+    await page.waitForSelector('text=機器の種類・機種');
+    await safe('スイッチ種別へ切替', () => page.getByRole('button', { name: /スイッチ/ }).click());
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(OUT, '12_quick.png') });
 
     await page.close();
   }
