@@ -252,7 +252,7 @@ export function verify(state: AppState): VerifyResult {
           add('L2', 'lack', tag,
             'VLAN ' + onlyB.join(',') + ' がルータ側で未許可。',
             'スイッチ側のVLANがルータに無いとL3ゲートウェイが存在しない。',
-            'SonicWall に VLAN ' + onlyB.join(',') + ' のサブIFを追加。');
+            'ルータ側に VLAN ' + onlyB.join(',') + ' のサブインターフェイスを追加。');
           setPort(da, L.a.iface, 'lack');
           setPort(db, L.b.iface, 'lack');
         }
@@ -480,7 +480,7 @@ export function verify(state: AppState): VerifyResult {
         add('L3', 'lack', d.key + ' / VLAN ' + v,
           'VLAN ' + v + ' に L3 ゲートウェイがありません。',
           'ゲートウェイ無しでは同一サブネット内しか通信できない。',
-          'SonicWall に VLAN ' + v + ' のサブIF(ゲートウェイIP)を作成。');
+          'ルータ側に VLAN ' + v + ' のサブインターフェイス、または L3 スイッチに SVI を作成(ゲートウェイIP)。');
       }
     });
   });

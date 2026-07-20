@@ -64,7 +64,17 @@ export function generateCiscoConfig(draft: CiscoBuilderDraft): string {
   if (draft.stpMode) out.push('spanning-tree mode ' + draft.stpMode);
   if (draft.stpPriority !== null) out.push('spanning-tree priority ' + draft.stpPriority);
   if (draft.security.pwEncrypt) out.push('service password-encryption');
-  if (draft.security.enableSecret) out.push('enable secret 9 $facet$generated$');
+  if (draft.security.enableSecret) {
+    /* GUI では enable secret の実値を収集しないため、生成物はプレースホルダになる。
+     * 以前は `enable secret 9 $facet$generated$`(type-9=scrypt)を出力していたが、
+     * これは有効な scrypt ハッシュではなく実機 IOS が拒否するため「そのまま実機投入可」
+     * という作成モードの主張と食い違っていた。type-0(平文入力)形式にすることで
+     * 実機が受理でき(投入時に自動でハッシュ化)、かつ「要変更」であることが値から
+     * 明白になる。パーサは `^enable\s+secret\b` で enableSecret=true を読み戻すため
+     * 往復保証も維持される。 */
+    out.push('! enable secret はプレースホルダです。実機投入前に必ず実際の値へ変更してください。');
+    out.push('enable secret 0 FACET-CHANGE-ME-BEFORE-DEPLOY');
+  }
   out.push('!');
 
   draft.vlans.forEach((v) => {
