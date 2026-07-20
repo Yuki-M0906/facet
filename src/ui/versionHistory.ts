@@ -19,9 +19,27 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.20.0';
+export const CURRENT_VERSION = '4.20.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.20.1',
+    date: '2026-07-11',
+    title: '全モードE2E検証で見つかった成果物の欠陥を修正',
+    changes: [
+      '[修正] 検証レポートの注記に無意味な語「脳閃」が表示されていたのを「見落とし」に訂正。',
+      '[修正] 作成モードのCisco生成configの `enable secret 9 $facet$generated$` は' +
+        '有効なscryptハッシュではなく実機IOSが拒否するため「そのまま実機投入可」の主張と' +
+        '食い違っていた。実機が受理できる type-0(平文入力)形式 `enable secret 0 ' +
+        'FACET-CHANGE-ME-BEFORE-DEPLOY` +「要変更」コメントに変更(往復保証は維持)。',
+      '[改善] 検証レポートのヒーローで、指摘ベースの件数(エラー/不足)と物理ポート単位の' +
+        '状態集計が同じ語ラベルで並び紛らわしかった問題を解消。verdictを「指摘 エラー…」、' +
+        'ポート集計に「ポート状態の内訳(物理ポート単位・指摘件数とは別集計)」ラベルと' +
+        '「〜ポート」キャプションを付与。',
+      '[改善] L3ゲートウェイ欠如の指摘の修正提案文を機種非依存に(簡易検証モードで' +
+        '未アップロードの「SonicWall」を指す不整合を解消。ルータのサブIF/L3スイッチのSVIに言及)。',
+    ],
+  },
   {
     version: '4.20.0',
     date: '2026-07-11',

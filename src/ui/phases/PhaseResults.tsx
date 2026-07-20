@@ -133,7 +133,7 @@ export function PhaseResults() {
       <div className="kicker">Phase 05 — Verification Report</div>
       <h1 className="title">検証レポート</h1>
       <div className="disclaimer">
-        これは<b>静的解析</b>です。設定上の不整合・脳閃・リスクを高精度に洗い出しますが、
+        これは<b>静的解析</b>です。設定上の不整合・見落とし・リスクを高精度に洗い出しますが、
         実機の物理疎通そのものを保証するものではありません。配備前監査・設定レビューの一次防衛線としてご利用ください。
       </div>
 
@@ -156,15 +156,20 @@ export function PhaseResults() {
                 : result.nLack ? `要確認:不足 ${result.nLack} 件`
                 : '良好:重大な指摘なし'}
             </b>
-            エラー {result.nErr} / コンフィグ不足 {result.nLack} 件を検出。スコアは重要度加重の目安です。
+            指摘 エラー {result.nErr} / コンフィグ不足 {result.nLack} 件を検出。スコアは重要度加重の目安です。
           </div>
         </div>
 
+        {/* 全機能監査 E2E: この4タイルは「指摘件数」ではなく物理ポート単位の状態集計。
+            上のverdict(指摘ベース)と数が食い違って見えるため、ポート単位である旨を明示する。 */}
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', color: 'var(--muted)', margin: '2px 0 8px' }}>
+          ポート状態の内訳(物理ポート単位・指摘件数とは別集計)
+        </div>
         <div className="summary">
           <Stat kind="tot" n={tot} cap="構成ポート" />
-          <Stat kind="ok" n={ok} cap="確認" />
-          <Stat kind="lack" n={lack} cap="不足" />
-          <Stat kind="err" n={err} cap="エラー" />
+          <Stat kind="ok" n={ok} cap="確認ポート" />
+          <Stat kind="lack" n={lack} cap="不足ポート" />
+          <Stat kind="err" n={err} cap="エラーポート" />
         </div>
 
         <div className="cats" style={{ marginBottom: 0 }}>

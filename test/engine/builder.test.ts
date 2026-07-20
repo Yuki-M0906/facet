@@ -108,6 +108,14 @@ describe('generateCiscoConfig → parseCisco 往復保証', () => {
     expect(parsed.sec.enableSecret).toBe(true);
     expect(parsed.sec.pwEncrypt).toBe(true);
   });
+  it('enable secret は実機投入可能なプレースホルダ(type-0)で、無効なtype-9ハッシュを出力しない(E2E検証)', () => {
+    /* 以前は `enable secret 9 $facet$generated$`(無効なscryptハッシュ=実機が拒否)を
+     * 出力していた。作成モードは「そのまま実機投入可」と謳うため、実機が受理できる
+     * type-0(平文入力)形式に変更。値は「要変更」と明白なプレースホルダにする。 */
+    expect(text).not.toContain('$facet$generated$');
+    expect(text).not.toMatch(/enable secret 9\b/);
+    expect(text).toMatch(/enable secret 0 \S+/);
+  });
   it('ACL 本体(permit/deny の rest)が読み戻せる(Sprint 5 SF5-3)', () => {
     expect(parsed.acls['WEB-ACL']).toEqual([
       { action: 'permit', rest: 'tcp any any eq 80' },
