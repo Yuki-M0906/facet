@@ -285,7 +285,7 @@ body.push(tbl([2000,8466],["カテゴリ","見ているもの"],[
  ["機器能力（CAP）","VLAN数・ACL数・SVI数・ルーティングテーブルの上限超過、PAgP非対応機種でのauto/desirable使用など"]
 ]));
 body.push(spacer(40));
-body.push(callout(null,[[run("新規：",{bold:true,color:GOLDD}),run("「機器能力（CAP）」は、選んだ機種のカタログ上の物理仕様と照らし合わせて検証する専用カテゴリです。例えば実際のVLAN数が機種の上限（64など）を超えていないかを自動で確認します。")]],"F4F4F2","D9D2C2"));
+body.push(callout(null,[[run("補足：",{bold:true,color:GOLDD}),run("「機器能力（CAP）」は、選んだ機種のカタログ上の物理仕様と照らし合わせて検証する専用カテゴリです。例えば実際のVLAN数が機種の上限（64など）を超えていないかを自動で確認します。")]],"F4F4F2","D9D2C2"));
 
 body.push(H2("9.4 経路トレース（目玉機能）"));
 body.push(shot("05_report_trace.png"));

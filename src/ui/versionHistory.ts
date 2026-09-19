@@ -19,9 +19,25 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.20.1';
+export const CURRENT_VERSION = '4.20.2';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.20.2',
+    date: '2026-09-19',
+    title: '本番展開前の総点検 — 経路トレース表記の修正と文書の是正',
+    changes: [
+      '[修正] 経路トレースで、タグなし(untagged)サブネットのホップが「VLAN-」という' +
+        '無意味な表記になっていたのを「タグなしセグメント」に修正(SRC/L2/RT/DST の4箇所)。',
+      '[文書] 公開手順書(docs/PUBLISHING.md)と CLAUDE.md が「Cloudflare Pages」を案内して' +
+        'いたが、実際の本番配信は Cloudflare Workers の静的アセット配信(wrangler.jsonc、' +
+        'main への push で自動デプロイ)。手順書どおりだと別の配信を新設してしまうため実態に是正。',
+      '[文書] README / CLAUDE.md / ARCHITECTURE / PARSER-NOTES / PUBLISHING に残っていた' +
+        '陳腐化した数値(テスト46ケース・配布物〜220KB)を現状(195ケース・〜330KB)に更新し、' +
+        '公開前チェックリストに簡易検証モードの確認を追加。README のクイックスタートにも' +
+        '簡易検証モードを記載。',
+    ],
+  },
   {
     version: '4.20.1',
     date: '2026-07-11',

@@ -9,6 +9,13 @@ import { evalFW, objContains } from './evalFW';
 import { representativeHostIp } from './ip';
 import type { AppState, NatPolicy, PathHop, PathTraceResult, SonicWallParsed } from './types';
 
+/** ホップ表記用のセグメント名。タグ付き VLAN は "VLAN<n>"、タグなし(vlan=null、
+ *  ルータの untagged インターフェイス直下のサブネット)は "タグなしセグメント"。
+ *  本番前総点検: 以前は `(vlan || '-')` で "VLAN-" という無意味な表記になっていた。 */
+function segLabel(vlan: string | null): string {
+  return vlan ? 'VLAN' + vlan : 'タグなしセグメント';
+}
+
 /* ---- 該当 NAT ポリシーのマッチング(Sprint 4 S4-2) ----
  * パーサが抽出する NAT ポリシーは original-source / translated-source /
  * outbound-interface のみ(SonicOS の全条件の簡略化サブセット)。この範囲で
@@ -53,7 +60,7 @@ export function pathTrace(
   const hops: PathHop[] = [];
   hops.push({
     node: 'SRC',
-    detail: src.dev + ' の VLAN' + (src.vlan || '-') + ' 内ホスト (' + src.cidr + ')',
+    detail: src.dev + ' の ' + segLabel(src.vlan) + ' 内ホスト (' + src.cidr + ')',
     status: 'ok',
   });
 
@@ -98,7 +105,7 @@ export function pathTrace(
     hops.push({
       node: 'L2',
       detail:
-        src.dev + ' → トランク → ' + r.key + '(VLAN' + (src.vlan || '-') + ' タグ付き転送)',
+        src.dev + ' → トランク → ' + r.key + '(' + (src.vlan ? 'VLAN' + src.vlan + ' タグ付き転送' : 'タグなし転送') + ')',
       status: 'ok',
     });
   }
@@ -117,7 +124,7 @@ export function pathTrace(
     hops.push({
       node: 'RT',
       detail:
-        r.key + ' が VLAN' + (dst!.vlan || '-') + ' (' + dst!.cidr + ') へルーティング(接続済)',
+        r.key + ' が ' + segLabel(dst!.vlan) + ' (' + dst!.cidr + ') へルーティング(接続済)',
       status: 'ok',
     });
   }
@@ -170,7 +177,7 @@ export function pathTrace(
     node: 'DST',
     detail: wan
       ? 'インターネット'
-      : (dst!.dev + ' VLAN' + (dst!.vlan || '-') + ' (' + dst!.cidr + ')'),
+      : (dst!.dev + ' ' + segLabel(dst!.vlan) + ' (' + dst!.cidr + ')'),
     status: 'ok',
   });
   return finalize(hops, 'ok', '設定上は到達可能');

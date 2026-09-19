@@ -66,7 +66,7 @@ tools/docs/                      ← Word ユーザガイド生成ツール
 npm install         # 初回のみ
 npm run dev         # 開発(HMR、http://localhost:5173)
 npm test            # Vitest 全ケース(version/engine/builder の3ファイル)
-npm run build       # dist/index.html を生成(単一 HTML、〜220KB)
+npm run build       # dist/index.html を生成(単一 HTML、〜330KB)
 npm run preview     # dist/ をローカル配信して動作確認
 ```
 
@@ -122,7 +122,8 @@ Matrix cells: `ok` / `deny` / `nogw` / `self`(UI は ○/×/△/—)。
 ## Before publishing anything publicly
 
 Read `LICENSING.md` first。IP ownership clarification は Yuki さん側で「公開 OK」が確認済
-(2026-06-23)。Cloudflare Pages に公開済み: https://facet.yuki-mats.workers.dev
+(2026-06-23)。Cloudflare Workers(静的アセット配信、設定は `wrangler.jsonc`、main への
+push で自動デプロイ)に公開済み: https://facet.yuki-mats.workers.dev
 (`docs/PUBLISHING.md` にデプロイ手順)。
 
 ## Where to continue
