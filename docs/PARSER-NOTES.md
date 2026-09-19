@@ -6,7 +6,7 @@ The parsers are deliberately tolerant and pattern-based, not full grammars. They
 v4.0.0 (Sprint 1.5) で TypeScript に移植済。実体は `src/engine/parsers/cisco.ts` と
 `src/engine/parsers/sonicwall.ts`。型は `src/engine/types.ts` の `CiscoParsed` /
 `SonicWallParsed` / `ParsedInterface` を参照。挙動は v3.1.0 と完全互換
-(46 ケース全 PASS で保証)。
+(`test/engine/engine.test.ts` の回帰スイート全 PASS で保証)。
 
 Sprint 3 で IOS / IOS-XE / NX-OS の判別と SonicOS バージョン差対応を実装予定。
 詳細は `ROADMAP.md`。

@@ -1715,3 +1715,20 @@ describe('pathTrace — /32 WAN インターフェイスの代表ホストIP計�
     expect(trace.verdict).toBe('ok');
   });
 });
+
+describe('pathTrace — タグなしサブネットのホップ表記(本番前総点検)', () => {
+  it('vlan が null のサブネットで "VLAN-" という無意味な表記にならない', () => {
+    /* 以前は (vlan || "-") により "R1 の VLAN- 内ホスト" と表示されていた。
+     * 注意: このファイルの lanSub は VLAN10(タグ付き)なので、ここでは X0 直下の
+     * タグなし LAN サブネット(192.168.1.0/24、vlan=null)を明示的に選ぶ。 */
+    const untagged = V.subnets.filter((s) => s.vlan === null && s.zone === 'LAN')[0]!;
+    expect(untagged.cidr).toBe('192.168.1.0/24');
+    const t = pathTrace(state, untagged.cidr, '__WAN__', 'any');
+    expect(t.hops.every((h) => !h.detail.includes('VLAN-'))).toBe(true);
+    expect(t.hops[0]!.detail).toContain('タグなしセグメント');
+  });
+  it('タグ付き VLAN のサブネットは従来どおり "VLAN<n>" と表記される', () => {
+    const t = pathTrace(state, posSub.cidr, '__WAN__', 'any');
+    expect(t.hops[0]!.detail).toContain('VLAN20');
+  });
+});

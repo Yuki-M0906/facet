@@ -128,7 +128,7 @@ reducer は engine の純関数のみを呼ぶ。
 npm run build
   → tsc -p tsconfig.json   (型チェック、emit なし)
   → vite build              (バンドル + minify + vite-plugin-singlefile で inline 化)
-  → dist/index.html         (CSS/JS/Asset すべて inline された単一 HTML、〜220KB)
+  → dist/index.html         (CSS/JS/Asset すべて inline された単一 HTML、〜330KB)
 ```
 
 配布物は **完全自己完結の HTML 1 ファイル**:
@@ -172,6 +172,6 @@ test/engine/builder.test.ts   ← 作成モード(generator の往復保証)
 test/version.test.ts          ← バージョン表記の整合性
 ```
 
-3 ファイル合計 Vitest 156 ケース(2026-07-11 時点。件数は増え続けるため、正確な
+3 ファイル合計 Vitest 195 ケース(2026-09-19 時点。件数は増え続けるため、正確な
 最新値は `npm test` の出力を参照)。新ルール追加 / バグ修正のたびにケース追加。
 `npm test` が緑のままを維持する。
