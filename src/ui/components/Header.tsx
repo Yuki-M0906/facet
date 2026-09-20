@@ -26,7 +26,9 @@ export function Header() {
      * まだ何も選択していない等)でまで確認ダイアログを出すのは不要な摩擦。 */
     const hasProgress = state.mode !== null || !!state.router || !!state.quickDevice || !!state.quickResult;
     if (hasProgress) {
-      const msg = state.mode === 'quick'
+      const msg = state.mode === 'exp'
+        ? 'ホームに戻ります。画面上の .exp 変換結果は破棄されます(ダウンロード済みのファイルは残ります)。よろしいですか?'
+        : state.mode === 'quick'
         ? 'ホームに戻ります。選択した機種・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?'
         : 'ホームに戻ります。選択した機種・トポロジー・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?';
       if (!window.confirm(msg)) return;
@@ -60,7 +62,7 @@ export function Header() {
           </button>
         </div>
       </div>
-      {state.mode !== 'quick' && <Stepper />}
+      {state.mode !== 'quick' && state.mode !== 'exp' && <Stepper />}
       {showHistory && <VersionHistoryModal onClose={closeHistory} />}
     </header>
   );

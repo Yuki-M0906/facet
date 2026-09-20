@@ -19,9 +19,23 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.21.0';
+export const CURRENT_VERSION = '4.22.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.22.0',
+    date: '2026-09-20',
+    title: '「④ .exp コンバート」を独立モードとして追加 — 検証パイプラインから分離',
+    changes: [
+      '[新機能] Phase 00 に 4 つ目の入り口「④ .exp コンバート」を追加。SonicWall の Settings Export' +
+        '(.exp)を選ぶだけで復号し、FACET用テキスト(.txt)/ 復号テキスト / Excel(.xlsx)を' +
+        'ダウンロードできる。複数ファイルの一括変換に対応。検証は行わない(変換専用)。',
+      '[変更] v4.21.0 で ① 検証モードのルータ枠と ③ 簡易検証モードに組み込んでいた .exp の' +
+        '自動変換は廃止。投入枠は CLI 可読テキスト専用に戻し、.exp は ④ で .txt に変換してから' +
+        '投入する運用に統一(変換と検証を混ぜない)。',
+      '[改善] ④ はステッパー非表示の単一画面。ホームに戻る際の確認文言を ④ 向けに追加。',
+    ],
+  },
   {
     version: '4.21.0',
     date: '2026-09-20',

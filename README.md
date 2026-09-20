@@ -17,13 +17,13 @@ Node.js などのインストールは不要、ネットも不要(完全自己�
 
 ```
 1. dist/index.html (またはホスティング先 URL) をブラウザで開く
-2. Phase 00 でモードを選択(①検証 / ②GUIで作成 / ③簡易検証)
+2. Phase 00 でモードを選択(①検証 / ②GUIで作成 / ③簡易検証 / ④.exp コンバート)
    → ①②は Phase 01〜02 で機器/トポロジー指定
    → ③は種別・機種を選んで機器1台分をアップロードするだけで即結果
+   → ④は SonicWall の Settings Export(.exp)をブラウザ内で復号し、FACET 用テキスト /
+     復号テキスト / Excel に変換するだけ(検証はしない。変換した .txt を ①③ に投入)
      (Phase 01〜04 不要。配線・到達性など複数機器にまたがるチェックは対象外)
 3. Phase 03 で running-config / SonicOS CLI 出力を投入(②は GUI フォームで作成→生成)
-   SonicWall は Settings Export(.exp)もそのまま投入可 — ブラウザ内で復号し、
-   FACET 用テキスト / 復号テキスト / Excel をダウンロードできる
 4. Phase 04 で検証実行 → Phase 05 でレポート(score / matrix / path trace / findings)
 5. JSON / Markdown / 印刷-PDF で出力
 ```

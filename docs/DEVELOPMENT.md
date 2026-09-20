@@ -46,7 +46,7 @@ src/
 │   └── index.ts                 ← 公開 API(UI からの唯一の窓口)
 ├── ui/
 │   ├── App.tsx / main.tsx / store.tsx
-│   ├── phases/{Mode,Select,Topology,Intake,Analyze,Results,Complete}.tsx
+│   ├── phases/{Mode,Select,Topology,Intake,Build,Analyze,Results,Complete,Quick,QuickResults,Exp}.tsx
 │   ├── components/{Header,Stepper,Faceplate,TopologyGraph,...}.tsx
 │   └── styles/global.css
 └── samples/                     ← デモ用匿名コンフィグ
@@ -95,9 +95,12 @@ Matrix cells: `ok` / `deny` / `nogw` / `self`(UI は ○/×/△/—)。
   Google Fonts や他 CDN への外部依存は追加禁止("nothing leaves the browser" の保証維持)。
 - **localStorage / sessionStorage は使用禁止**(プライバシー story 維持)。
 - **検証ルール追加 / バグ修正ごとに `test/engine/engine.test.ts` にケース追加**。
-- **SonicWall パーサの入力は CLI 可読テキストが正**。`.exp`(Settings Export)は v4.21.0 から
-  対応したが、パーサに直接食わせるのではなく `src/engine/expDecode.ts`(base64+URL エンコードの
-  `key=value&…` を復号)→ `expToCli.ts`(FACET が読める CLI テキストへ変換)を経由する。
+- **SonicWall パーサの入力は CLI 可読テキストのみ**。`.exp`(Settings Export)は投入枠では
+  受け付けない。変換は独立モード「④ .exp コンバート」(`src/ui/phases/PhaseExp.tsx`)だけで行い、
+  `src/engine/expDecode.ts`(base64+URL エンコードの `key=value&…` を復号)→ `expToCli.ts`
+  (FACET が読める CLI テキストへ変換)→ ユーザが .txt を保存して ① / ③ に投入する。
+  **検証パイプラインに .exp 変換を組み込まない**(v4.21.0 で一度組み込み、v4.22.0 で
+  「別機能として独立させる」というユーザ判断により分離した。再統合しない)。
   変数名の根拠は `docs/PARSER-NOTES.md` の「.exp」節。パスワード等の暗号化値は復号不能。
 - **サンプルは匿名化維持**(`src/samples/`):ACME-*、RFC1918、TEST-NET (203.0.113.x)。
   実機名・実 IP・実拠点名・実セキュリティ構成は絶対にコミットしない。

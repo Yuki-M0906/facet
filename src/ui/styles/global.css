@@ -83,7 +83,9 @@ details.panel>summary.eyebrow-collapsible:focus-visible{outline:2px solid var(--
 details.panel>.panel-body{padding:16px 22px 22px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}@media(max-width:1100px){.grid3{grid-template-columns:1fr 1fr}}@media(max-width:680px){.grid3{grid-template-columns:1fr}}
-.grid2>.panel,.grid3>.panel{margin-top:0}
+.grid2>.panel,.grid3>.panel,.grid4>.panel{margin-top:0}
+/* Phase 00 のモードカード 4 枚(v4.22.0)。4 列だと本文が読めないため 2×2 で並べる。 */
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:22px}@media(max-width:680px){.grid4{grid-template-columns:1fr}}
 .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:16px;display:flex;align-items:center;gap:10px}
 .eyebrow::after{content:"";flex:1;height:1px;background:var(--hair)}
 label.fld{display:block;margin-bottom:18px}label.fld span{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}

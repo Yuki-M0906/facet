@@ -1,7 +1,7 @@
 /**
  * Phase 00 — モード選択。
  * ① 既存コンフィグを検証(実装済) / ② GUI でゼロから作成(Sprint 5 MVP、実装済) /
- * ③ 単体機器だけを簡易検証(v4.19.0)
+ * ③ 単体機器だけを簡易検証(v4.19.0)/ ④ SonicWall .exp を .txt / Excel に変換(v4.22.0)
  */
 
 import { useApp } from '../store';
@@ -14,9 +14,9 @@ export function PhaseMode() {
       <h1 className="title">モード選択</h1>
       <p className="lede">
         既存のコンフィグを<b>検証</b>するか、GUI でゼロから<b>作成</b>するか、
-        単体機器だけを<b>簡易検証</b>するかを選んでください。
+        単体機器だけを<b>簡易検証</b>するか、SonicWall の .exp を<b>変換</b>するかを選んでください。
       </p>
-      <div className="grid3">
+      <div className="grid4">
         <div className="panel modecard">
           <div className="eyebrow">① 検証モード</div>
           <div className="modecard-h">既存コンフィグを検証</div>
@@ -81,6 +81,29 @@ export function PhaseMode() {
             onClick={() => {
               dispatch({ type: 'SET_MODE', mode: 'quick' });
               dispatch({ type: 'NAV', phase: 'quick' });
+            }}
+          >
+            このモードで進む →
+          </button>
+        </div>
+        <div className="panel modecard">
+          <div className="eyebrow">④ .exp コンバート</div>
+          <div className="modecard-h">SonicWall の .exp を変換</div>
+          <p className="modecard-p">
+            SonicWall の Settings Export(.exp)をブラウザ内で復号し、FACET に投入できる CLI テキスト(.txt)と、
+            人が読み合わせるための Excel(.xlsx)に変換します。このモードでは検証は行いません。
+          </p>
+          <div className="modecard-bullets">
+            <span>・ .exp を選ぶだけ(複数ファイル可、外部送信なし)</span>
+            <span>・ 出力: FACET用テキスト / 復号テキスト / Excel(11シート)</span>
+            <span>・ 変換した .txt は ① 検証モード / ③ 簡易検証モードに投入可</span>
+          </div>
+          <button
+            className="btn primary"
+            style={{ marginTop: 18 }}
+            onClick={() => {
+              dispatch({ type: 'SET_MODE', mode: 'exp' });
+              dispatch({ type: 'NAV', phase: 'exp' });
             }}
           >
             このモードで進む →

@@ -3,10 +3,8 @@
  * 元: v3.1.0 の buildSlots + refreshSlots + parseSummary + downloadCfg。
  */
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { CiscoParsed, Device, ParseCoverage, SonicWallParsed } from '@engine/types';
-import { convertExp, isExpUpload, type ExpArtifacts } from '../expArtifacts';
-import { ExpConvertPanel } from './ExpConvertPanel';
 
 export type SlotStatus = 'locked' | 'ready' | 'loaded';
 
@@ -78,41 +76,18 @@ export function DeviceSlot({ device, status, onFile }: Props) {
   const coverage = isLoaded ? coverageOf(device) : null;
   const covLabel = coverage ? coverageLabel(coverage) : '';
 
-  /* v4.21.0: SonicWall の Settings Export(.exp)はルータ枠で自動変換する。
-   * 変換結果(FACET 用テキスト / 復号テキスト / Excel)はこのスロットの直下に表示し、
-   * 検証には変換後の CLI テキストを投入する。 */
-  const [exp, setExp] = useState<ExpArtifacts | null>(null);
-  const [expError, setExpError] = useState<string | null>(null);
-
+  /* v4.22.0: SonicWall の .exp はここでは扱わない。「④ .exp コンバート」で .txt に変換
+   * してから投入する(検証パイプラインと変換機能を分離するという方針)。 */
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const name = f.name;
     const r = new FileReader();
-    r.onload = () => {
-      const text = String(r.result || '');
-      if (device.role === 'router' && isExpUpload(name, text)) {
-        try {
-          const art = convertExp(text, name);
-          setExp(art);
-          setExpError(null);
-          onFile(art.cliText);
-        } catch (err) {
-          setExp(null);
-          setExpError('.exp の復号に失敗しました: ' + (err instanceof Error ? err.message : String(err)));
-        }
-        return;
-      }
-      setExp(null);
-      setExpError(null);
-      onFile(text);
-    };
+    r.onload = () => onFile(String(r.result || ''));
     r.readAsText(f);
     e.target.value = '';
   }
 
   return (
-    <>
     <div className={'slot ' + status}>
       <div className="ic">{icon}</div>
       <div className="info">
@@ -138,18 +113,12 @@ export function DeviceSlot({ device, status, onFile }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept={device.role === 'router' ? '.txt,.cfg,.conf,.log,.exp' : '.txt,.cfg,.conf,.log'}
+          accept=".txt,.cfg,.conf,.log"
           onChange={handleChange}
           disabled={status === 'locked'}
         />
         ファイル選択
       </label>
     </div>
-    {expError && <div className="builder-warn" style={{ marginTop: 6 }}>⚠ {expError}</div>}
-    {/* パネルは「今このスロットに入っている設定が変換テキストそのもの」の間だけ出す。
-      * サンプル一括読込やクリア後の再投入で config が差し替わったら、古い .exp の成果物を
-      * 見せ続けない(ローカル state のまま残るため、config との一致で判定する)。 */}
-    {exp && isLoaded && device.config === exp.cliText && <ExpConvertPanel exp={exp} />}
-    </>
   );
 }

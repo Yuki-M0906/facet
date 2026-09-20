@@ -1,6 +1,6 @@
 /**
  * `.exp` 変換結果のサマリと成果物ダウンロード(v4.21.0)。
- * Phase 03 のルータスロット直下、および簡易検証モードの結果画面で使う。
+ * v4.22.0 から「④ .exp コンバート」(PhaseExp)専用。検証パイプラインには組み込まない。
  */
 
 import type { ExpArtifacts } from '../expArtifacts';
@@ -25,7 +25,7 @@ export function ExpConvertPanel({ exp }: Props) {
         設定変数 {exp.pairCount} 件を復号し、FACET が解釈できる形に変換しました —
         インターフェイス {c.interfaces} / アドレスオブジェクト {c.addrObjs} / サービス {c.svcObjs} /
         アクセスルール {c.rules} / NAT {c.nats} / DHCP {c.dhcp}。
-        検証にはこの変換テキストが使われます(元ファイルは外部に送信されません)。
+        処理はすべてブラウザ内で完結し、元ファイルは外部に送信されません。
       </p>
       <div className="exp-actions">
         <button
