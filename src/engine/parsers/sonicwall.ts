@@ -40,6 +40,12 @@ function mkif(name: string, vlanTag: string | null): ParsedInterface {
   };
 }
 
+/** `"Blaze Meter Group"` のように引用符で囲まれた名前(スペース入り)から引用符を外す。
+ *  実 SonicOS CLI・.exp 変換出力(v4.21.0)の双方でスペース入りのオブジェクト名が現れる。 */
+function uq(s: string): string {
+  return s.replace(/^"(.*)"$/, '$1');
+}
+
 export function parseSonicWall(text: string): SonicWallParsed {
   const out: Omit<SonicWallParsed, 'coverage'> = {
     hostname: null,
@@ -91,34 +97,37 @@ export function parseSonicWall(text: string): SonicWallParsed {
     let recognized = false;
 
     matchLine: {
+      /* `!` / `#` で始まる行は注釈として認識済み扱い(ブロックは閉じない)。cisco.ts と同じ
+       * 慣習で、.exp 変換出力(v4.21.0)がヘッダや補足を `!` 行で書くために必要。 */
+      if (/^[!#]/.test(t)) { recognized = true; break matchLine; }
       if ((m = t.match(/^(?:system\s+)?name\s+(\S+)/i))) {
         if (!out.hostname) out.hostname = m[1]!;
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?(\S+)\s+host\s+([\d.]+)(?:\s+zone\s+(\S+))?/i))) {
+      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?("[^"]*"|\S+)\s+host\s+([\d.]+)(?:\s+zone\s+("[^"]*"|\S+))?/i))) {
         flushAll();
-        out.addr[m[1]!] = { type: 'host', ip: m[2]!, zone: m[3] || null };
+        out.addr[uq(m[1]!)] = { type: 'host', ip: m[2]!, zone: m[3] ? uq(m[3]) : null };
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?(\S+)\s+network\s+([\d.]+)\s+([\d.]+)(?:\s+zone\s+(\S+))?/i))) {
+      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?("[^"]*"|\S+)\s+network\s+([\d.]+)\s+([\d.]+)(?:\s+zone\s+("[^"]*"|\S+))?/i))) {
         flushAll();
-        out.addr[m[1]!] = { type: 'network', cidr: subnetOf(m[2]!, m[3]!), zone: m[4] || null };
+        out.addr[uq(m[1]!)] = { type: 'network', cidr: subnetOf(m[2]!, m[3]!), zone: m[4] ? uq(m[4]) : null };
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?(\S+)\s+range\s+([\d.]+)\s+([\d.]+)/i))) {
+      if ((m = t.match(/^address-object\s+(?:ipv4\s+)?("[^"]*"|\S+)\s+range\s+([\d.]+)\s+([\d.]+)/i))) {
         flushAll();
-        out.addr[m[1]!] = { type: 'range', from: m[2]!, to: m[3]! };
+        out.addr[uq(m[1]!)] = { type: 'range', from: m[2]!, to: m[3]! };
         recognized = true;
         break matchLine;
       }
-      if ((m = t.match(/^service-object\s+(\S+)\s+(\S+)(?:\s+(\d+)(?:\s*-\s*(\d+))?)?/i))) {
+      if ((m = t.match(/^service-object\s+("[^"]*"|\S+)\s+(\S+)(?:\s+(\d+)(?:\s*-\s*(\d+))?)?/i))) {
         /* ポート/タイプ番号が無い行(例: `service-object svc-icmp icmp`、
          * ICMPやプロトコル丸ごとのオブジェクト)は from/to を null(ワイルドカード)
          * として扱う。svcMatch は既に null をワイルドカードとして処理する。 */
-        out.svc[m[1]!] = {
+        out.svc[uq(m[1]!)] = {
           proto: m[2]!,
           from: m[3] ? Number(m[3]) : null,
           to: m[3] ? (m[4] ? Number(m[4]) : Number(m[3])) : null,
@@ -136,23 +145,23 @@ export function parseSonicWall(text: string): SonicWallParsed {
         /* address-object 名にはスペースを含むものがある(組み込みグループの
          * "LAN Subnets" 等)。\S+ だと1トークン目で切れてしまうため行末までを
          * 捕捉する。 */
-        if ((m = t.match(/^original-source\s+(.+)/i))) { nat.orig = m[1]!.trim(); recognized = true; }
-        else if ((m = t.match(/^translated-source\s+(.+)/i))) { nat.trans = m[1]!.trim(); recognized = true; }
+        if ((m = t.match(/^original-source\s+(.+)/i))) { nat.orig = uq(m[1]!.trim()); recognized = true; }
+        else if ((m = t.match(/^translated-source\s+(.+)/i))) { nat.trans = uq(m[1]!.trim()); recognized = true; }
         else if ((m = t.match(/^outbound-interface\s+(\S+)/i))) { nat.iface = m[1]!; recognized = true; }
         if (/^(end|exit)\s*$/i.test(t) || t === '') { flushNat(); recognized = true; }
         break matchLine;
       }
-      if ((m = t.match(/^access-rule\s+from\s+(\S+)\s+to\s+(\S+)/i))) {
+      if ((m = t.match(/^access-rule\s+from\s+("[^"]*"|\S+)\s+to\s+("[^"]*"|\S+)/i))) {
         flushAll();
-        rule = { from: m[1]!, to: m[2]!, action: 'allow', src: 'any', dst: 'any', service: 'any', enabled: true };
+        rule = { from: uq(m[1]!), to: uq(m[2]!), action: 'allow', src: 'any', dst: 'any', service: 'any', enabled: true };
         recognized = true;
         break matchLine;
       }
       if (rule) {
         if ((m = t.match(/^action\s+(\S+)/i))) { rule.action = m[1]!.toLowerCase(); recognized = true; }
-        else if ((m = t.match(/^source\s+(.+)/i))) { rule.src = m[1]!.trim(); recognized = true; }
-        else if ((m = t.match(/^destination\s+(.+)/i))) { rule.dst = m[1]!.trim(); recognized = true; }
-        else if ((m = t.match(/^service\s+(.+)/i))) { rule.service = m[1]!.trim(); recognized = true; }
+        else if ((m = t.match(/^source\s+(.+)/i))) { rule.src = uq(m[1]!.trim()); recognized = true; }
+        else if ((m = t.match(/^destination\s+(.+)/i))) { rule.dst = uq(m[1]!.trim()); recognized = true; }
+        else if ((m = t.match(/^service\s+(.+)/i))) { rule.service = uq(m[1]!.trim()); recognized = true; }
         else if (/^(disable|disabled|no\s+enable)/i.test(t)) { rule.enabled = false; recognized = true; }
         else if (/^(end|exit)\s*$/i.test(t) || t === '') { flushRule(); recognized = true; }
         break matchLine;

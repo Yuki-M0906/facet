@@ -42,6 +42,7 @@ src/
 │   ├── mapToPorts.ts / buildSubnets.ts
 │   ├── evalFW.ts                ← FW 評価 (svcMatch 双方向 overlap)
 │   ├── buildMatrix.ts / pathTrace.ts / verify.ts / autoLinks.ts
+│   ├── expDecode.ts / expToCli.ts / xlsx.ts ← SonicWall .exp 復号→CLI変換→XLSX(v4.21.0)
 │   └── index.ts                 ← 公開 API(UI からの唯一の窓口)
 ├── ui/
 │   ├── App.tsx / main.tsx / store.tsx
@@ -49,7 +50,7 @@ src/
 │   ├── components/{Header,Stepper,Faceplate,TopologyGraph,...}.tsx
 │   └── styles/global.css
 └── samples/                     ← デモ用匿名コンフィグ
-test/                            ← Vitest 回帰スイート(version/engine/builder の3ファイル)
+test/                            ← Vitest 回帰スイート(version/engine/builder/exp の4ファイル)
 dist/index.html                  ← ビルド成果物 (配布する単一 HTML)
 docs/                            ← ARCHITECTURE / VERIFICATION-RULES / ROADMAP /
                                    PARSER-NOTES / PUBLISHING / SPRINT-1.5-DESIGN
@@ -65,7 +66,7 @@ tools/docs/                      ← Word ユーザガイド生成ツール
 ```
 npm install         # 初回のみ
 npm run dev         # 開発(HMR、http://localhost:5173)
-npm test            # Vitest 全ケース(version/engine/builder の3ファイル)
+npm test            # Vitest 全ケース(version/engine/builder/exp の4ファイル)
 npm run build       # dist/index.html を生成(単一 HTML、〜330KB)
 npm run preview     # dist/ をローカル配信して動作確認
 ```
@@ -76,7 +77,9 @@ npm run preview     # dist/ をローカル配信して動作確認
 `buildSubnets` / `buildMatrix` / `autoLinks` / `pathTrace` / `evalFW` /
 `WELL_KNOWN_SVC` / `resolveSvc` / `svcMatch` / `objContains` / `expandVlans` /
 `expandIfRange` / `subnetOf` / `inSubnet` / `canonIf` / `uniq` / `ipToInt` / `intToIp` /
-`maskBits` / `bitsToMaskInt`。型は `export type *` で再公開済。
+`maskBits` / `bitsToMaskInt` / `looksLikeExp` / `decodeExp` / `expToDecodedText` / `extractExpModel` /
+`expModelToCli` / `expModelToSheets` / `buildXlsx`(v4.21.0、.exp 復号→変換→XLSX)。
+型は `export type *` で再公開済。
 
 Key facts: status = `ok` / `err` / `lack` / `idle`。Score = `max(0, 100 − err×12 − lack×4)`。
 Path-trace hop order: SRC → (L2) → GW → RT → FW → (NAT) → DST(同一サブネット時は SRC + DST のみ)。
@@ -92,7 +95,10 @@ Matrix cells: `ok` / `deny` / `nogw` / `self`(UI は ○/×/△/—)。
   Google Fonts や他 CDN への外部依存は追加禁止("nothing leaves the browser" の保証維持)。
 - **localStorage / sessionStorage は使用禁止**(プライバシー story 維持)。
 - **検証ルール追加 / バグ修正ごとに `test/engine/engine.test.ts` にケース追加**。
-- **SonicWall は CLI 可読テキスト入力**。`.exp`(難読化バイナリ)は意図的に非対応。
+- **SonicWall パーサの入力は CLI 可読テキストが正**。`.exp`(Settings Export)は v4.21.0 から
+  対応したが、パーサに直接食わせるのではなく `src/engine/expDecode.ts`(base64+URL エンコードの
+  `key=value&…` を復号)→ `expToCli.ts`(FACET が読める CLI テキストへ変換)を経由する。
+  変数名の根拠は `docs/PARSER-NOTES.md` の「.exp」節。パスワード等の暗号化値は復号不能。
 - **サンプルは匿名化維持**(`src/samples/`):ACME-*、RFC1918、TEST-NET (203.0.113.x)。
   実機名・実 IP・実拠点名・実セキュリティ構成は絶対にコミットしない。
 - **ASCII-only filenames** for any committed file.

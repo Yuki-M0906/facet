@@ -67,6 +67,34 @@ async function main() {
     await page.waitForSelector('text=PHASE 03');
     await page.screenshot({ path: path.join(OUT, '03_intake.png') });
 
+    /* v4.21.0: ルータ枠に匿名の .exp(base64 の key=value 群)を投入し、変換結果パネルを撮る。
+     * 撮影後は「クリア」で元に戻し、続くサンプル読込フローに影響させない。 */
+    await safe('.exp 変換パネル', async () => {
+      const KV = [
+        'shortProdName=TZ 470', 'buildNum=7.1.2-7019', 'firewallName=ACME-EDGE-01',
+        'iface_ifnum_0=0', 'iface_name_0=X0', 'iface_phys_type_0=0', 'interface_Zone_0=LAN', 'iface_comment_0=LAN%20core',
+        'iface_lan_ip_0=192.168.1.1', 'iface_lan_mask_0=255.255.255.0', 'iface_vlan_tag_0=0', 'iface_vlan_parent_0=-1',
+        'iface_ifnum_1=1', 'iface_name_1=X1', 'iface_phys_type_1=0', 'interface_Zone_1=WAN', 'iface_lan_ip_1=0.0.0.0',
+        'iface_static_ip_1=203.0.113.2', 'iface_static_mask_1=255.255.255.248', 'iface_vlan_tag_1=0',
+        'iface_ifnum_2=268435466', 'iface_name_2=X0%3aV10', 'iface_phys_type_2=2', 'interface_Zone_2=LAN',
+        'iface_lan_ip_2=192.168.10.1', 'iface_lan_mask_2=255.255.255.0', 'iface_vlan_tag_2=10', 'iface_vlan_parent_2=0',
+        'addrObjId_1=net-staff', 'addrObjType_1=4', 'addrObjZone_1=LAN', 'addrObjIp1_1=192.168.10.0', 'addrObjIp2_1=255.255.255.0',
+        'svcObjId_1=svc-https', 'svcObjType_1=1', 'svcObjIpType_1=6', 'svcObjPort1_1=443', 'svcObjPort2_1=443',
+        'policyAction_0=2', 'policySrcZone_0=LAN', 'policyDstZone_0=WAN', 'policySrcNet_0=', 'policyDstNet_0=',
+        'policyDstSvc_0=', 'policyEnabled_0=1', 'policyComment_0=LAN%20to%20WAN',
+      ];
+      const exp = Buffer.from(KV.join('&'), 'utf8').toString('base64') + '&&';
+      await page.locator('input[type=file]').first().setInputFiles({ name: 'acme-edge-01.exp', mimeType: 'application/octet-stream', buffer: Buffer.from(exp, 'utf8') });
+      await page.waitForSelector('.exp-panel');
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: path.join(OUT, '13_exp_convert.png') });
+      /* 「クリア」は投入済みデータがあると window.confirm を出す(v4.20.0 Medium-15)。
+       * Playwright は既定で confirm を「キャンセル」扱いにするため、明示的に受諾する。 */
+      page.once('dialog', (d) => d.accept());
+      await page.getByRole('button', { name: 'クリア', exact: true }).click();
+      await page.waitForTimeout(200);
+    });
+
     await page.getByRole('button', { name: /サンプルコンフィグを読み込む/ }).click();
     await page.waitForTimeout(400);
     await page.getByRole('button', { name: /検証を実行/ }).click();

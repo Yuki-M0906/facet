@@ -22,6 +22,8 @@ Node.js などのインストールは不要、ネットも不要(完全自己�
    → ③は種別・機種を選んで機器1台分をアップロードするだけで即結果
      (Phase 01〜04 不要。配線・到達性など複数機器にまたがるチェックは対象外)
 3. Phase 03 で running-config / SonicOS CLI 出力を投入(②は GUI フォームで作成→生成)
+   SonicWall は Settings Export(.exp)もそのまま投入可 — ブラウザ内で復号し、
+   FACET 用テキスト / 復号テキスト / Excel をダウンロードできる
 4. Phase 04 で検証実行 → Phase 05 でレポート(score / matrix / path trace / findings)
 5. JSON / Markdown / 印刷-PDF で出力
 ```
@@ -31,7 +33,7 @@ Node.js などのインストールは不要、ネットも不要(完全自己�
 ```bash
 npm install
 npm run dev       # 開発サーバ (HMR、http://localhost:5173)
-npm test          # Vitest 回帰スイート全ケース(version/engine/builder の3ファイル)
+npm test          # Vitest 回帰スイート全ケース(version/engine/builder/exp の4ファイル)
 npm run build     # dist/index.html を生成(配布物)
 npm run preview   # dist/ をローカル配信して最終確認
 ```
@@ -52,7 +54,7 @@ Node.js 20+ が必要。Windows / macOS / Linux で同じ手順。
 | `src/engine/` | DOM-free 検証エンジン (TypeScript) — Catalog / Parser / Verify / PathTrace / EvalFW |
 | `src/ui/` | React UI — Phase 0〜6 のコンポーネント、状態管理(useReducer + Context) |
 | `src/samples/` | デモ用匿名コンフィグ |
-| `test/` | Vitest 回帰スイート(version / engine / builder の3ファイル。件数は `npm test` の出力が正) |
+| `test/` | Vitest 回帰スイート(version / engine / builder / exp の4ファイル。件数は `npm test` の出力が正) |
 | `dist/index.html` | ビルド成果物 — これが「配布する FACET」(〜330KB) |
 | `docs/` | ARCHITECTURE / VERIFICATION-RULES / ROADMAP / PARSER-NOTES / PUBLISHING |
 | `CLAUDE.md` | Claude Code 向けプロジェクトメモ |

@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { CATALOG } from '@engine/index';
 import { useApp } from '../store';
+import { convertExp, isExpUpload } from '../expArtifacts';
 
 export function PhaseQuick() {
   const { state, dispatch } = useApp();
@@ -18,12 +19,25 @@ export function PhaseQuick() {
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const name = f.name;
     setReading(true);
     const r = new FileReader();
     r.onload = () => {
       setReading(false);
       const text = String(r.result || '');
       if (!text.trim()) { setError('ファイルが空です。中身のあるコンフィグファイルを選択してください。'); return; }
+      /* v4.21.0: ルータ種別で .exp(Settings Export)を投入したら自動変換し、変換後の
+       * CLI テキストで検証する。成果物は結果画面からダウンロードできるよう store に渡す。 */
+      if (state.quickRole === 'router' && isExpUpload(name, text)) {
+        try {
+          const art = convertExp(text, name);
+          setError(null);
+          dispatch({ type: 'QUICK_VERIFY', text: art.cliText, exp: art });
+        } catch (err) {
+          setError('.exp の復号に失敗しました: ' + (err instanceof Error ? err.message : String(err)));
+        }
+        return;
+      }
       setError(null);
       dispatch({ type: 'QUICK_VERIFY', text });
     };
@@ -79,7 +93,7 @@ export function PhaseQuick() {
         <div className="eyebrow">コンフィグファイル</div>
         <p className="note">
           {state.quickRole === 'router'
-            ? 'SonicOS の CLI 可読テキストを投入してください(難読化された .exp は非対応)。'
+            ? 'SonicOS の CLI 可読テキスト、または Settings Export(.exp)を投入してください(.exp はその場で復号・変換し、変換テキストと Excel を結果画面からダウンロードできます)。'
             : 'Cisco の running-config テキストを投入してください。'}
         </p>
         <div className="slot ready" style={{ marginTop: 10 }}>
@@ -92,7 +106,7 @@ export function PhaseQuick() {
           <label className="btn ghost" aria-disabled={reading}>
             <input
               type="file"
-              accept=".txt,.cfg,.conf,.log"
+              accept={state.quickRole === 'router' ? '.txt,.cfg,.conf,.log,.exp' : '.txt,.cfg,.conf,.log'}
               onChange={handleFile}
               disabled={reading}
             />
