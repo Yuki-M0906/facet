@@ -239,6 +239,16 @@ table.mx td.src{color:var(--gold);background:rgba(201,168,106,.05);text-align:le
 .hidden{display:none!important}
 .disclaimer{font-size:12px;color:var(--muted);background:rgba(217,166,72,.06);border:1px solid rgba(217,166,72,.22);border-radius:10px;padding:13px 16px;margin-bottom:22px;line-height:1.55}
 .disclaimer b{color:var(--topaz)}
+/* v4.21.0: .exp 変換結果パネル(スロット直下 / 簡易検証の結果画面) */
+.exp-panel{margin:8px 0 14px;padding:12px 16px;border:1px solid var(--hair);border-radius:12px;background:rgba(201,168,106,.04)}
+.exp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.exp-title{font-family:var(--mono);color:var(--ink)}
+.exp-meta{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.exp-summary{font-size:12.5px;color:var(--muted);margin:8px 0 10px;line-height:1.6}
+.exp-actions{display:flex;gap:10px;flex-wrap:wrap}
+.exp-details{margin-top:10px;font-size:12px;color:var(--muted)}
+.exp-details summary{cursor:pointer;color:var(--gold-dim)}
+.exp-details ul{margin:6px 0 0 18px;line-height:1.6}
 /* Phase 03 (build mode) ビルダーフォーム */
 .builder-section{margin-bottom:28px}
 .builder-section:last-child{margin-bottom:0}

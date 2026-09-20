@@ -19,9 +19,28 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.20.2';
+export const CURRENT_VERSION = '4.21.0';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.21.0',
+    date: '2026-09-20',
+    title: 'SonicWall .exp(Settings Export)の読み込み対応 — 復号→変換テキスト→Excel',
+    changes: [
+      '[新機能] ルータ枠(Phase 03)と簡易検証モードに SonicWall の Settings Export(.exp)を' +
+        'そのまま投入できるように。.exp は base64+URLエンコードの設定変数リストであることを' +
+        '公式KBと公開実装で確認し、ブラウザ内で復号→FACET が解釈できる CLI テキストへ変換して' +
+        '検証する(外部送信なし)。実物の .exp サンプルで復号結果の完全一致を検証済み。',
+      '[新機能] 変換結果パネルから3つの成果物をダウンロード: FACET用テキスト(.txt、そのまま' +
+        '再投入可)、復号テキスト(全設定変数を1行1変数)、Excel(.xlsx: 概要/インターフェイス/' +
+        'ゾーン/アドレス・サービスオブジェクトとグループ/アクセスルール/NAT/DHCP/全変数の11シート)。' +
+        'XLSX は依存ライブラリなしの自前ライタで生成し、実際の Excel で開けることを確認済み。',
+      '[改善] パーサ: スペースを含むオブジェクト名を "…" で引用した形(実 SonicOS CLI と同じ)を' +
+        'address/service/access-rule/nat で受け付け、! / # で始まる注釈行を認識済み扱いに。',
+      '[注記] 変換で省略する項目(アドレス/サービスグループ、FQDN、無効NAT、MGMT等のIF、静的ルート)は' +
+        'パネルと Excel に明示。パスワード等の暗号化値は復号不能。',
+    ],
+  },
   {
     version: '4.20.2',
     date: '2026-09-19',

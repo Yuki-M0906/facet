@@ -14,6 +14,14 @@ export { canonIf, expandVlans, expandIfRange, uniq } from './canonIf';
 export { parseCisco } from './parsers/cisco';
 export { parseSonicWall } from './parsers/sonicwall';
 
+/* SonicWall .exp(Settings Export)の復号・変換(v4.21.0) */
+export { looksLikeExp, decodeExp, expToDecodedText, percentDecode } from './expDecode';
+export type { ExpDecodeResult, ExpPair } from './expDecode';
+export { extractExpModel, expModelToCli, expModelToSheets } from './expToCli';
+export type { ExpModel, ExpCliResult, ExpInterface, ExpAddrObj, ExpSvcObj, ExpPolicy, ExpNat, ExpDhcpScope, ExpZone, ExpGroup } from './expToCli';
+export { buildXlsx, crc32 } from './xlsx';
+export type { XlsxSheet, XlsxCell } from './xlsx';
+
 export { generateCiscoConfig, isCiscoPortConfigured } from './generators/cisco';
 export { generateSonicWallConfig } from './generators/sonicwall';
 

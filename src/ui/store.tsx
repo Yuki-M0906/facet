@@ -35,6 +35,8 @@ import type {
 } from '@engine/types';
 import { SMP_C1, SMP_C2, SMP_SW } from '../samples';
 
+import type { ExpArtifacts } from './expArtifacts';
+
 export type PhaseId =
   | 'mode' | 'select' | 'topo' | 'upload' | 'build' | 'analyze' | 'results' | 'complete'
   | 'quick' | 'quickResults';
@@ -89,6 +91,8 @@ export interface UIState {
   quickModelId: string;
   quickDevice: Device | null;
   quickResult: VerifyResult | null;
+  /** 簡易検証で .exp を投入した場合の変換成果物(結果画面でダウンロードできるよう保持) */
+  quickExp: ExpArtifacts | null;
 }
 
 export type Action =
@@ -114,7 +118,7 @@ export type Action =
   | { type: 'SET_FILTER'; filter: FindingCategory | 'all' }
   | { type: 'SET_QUICK_ROLE'; role: 'router' | 'switch' }
   | { type: 'SET_QUICK_MODEL'; id: string }
-  | { type: 'QUICK_VERIFY'; text: string }
+  | { type: 'QUICK_VERIFY'; text: string; exp?: ExpArtifacts | null }
   | { type: 'QUICK_RESET' }
   | { type: 'RESET' };
 
@@ -210,6 +214,7 @@ const initial: UIState = {
   quickModelId: CATALOG.router[0]!.id,
   quickDevice: null,
   quickResult: null,
+  quickExp: null,
 };
 
 /* ---- 副作用ヘルパ(reducer 内で呼ぶ純粋なもののみ) ---- */
@@ -427,7 +432,7 @@ function reducer(s: UIState, a: Action): UIState {
       const models = a.role === 'router' ? CATALOG.router : CATALOG.switch;
       return {
         ...s, quickRole: a.role, quickModelId: models[0]!.id,
-        quickDevice: null, quickResult: null,
+        quickDevice: null, quickResult: null, quickExp: null,
       };
     }
     case 'SET_QUICK_MODEL':
@@ -440,12 +445,12 @@ function reducer(s: UIState, a: Action): UIState {
       const device = makeDevice(s.quickRole === 'router' ? 'R1' : 'SW1', s.quickRole, model);
       ingest(device, a.text);
       const result = verify(buildQuickAppState(device));
-      return { ...s, quickDevice: device, quickResult: result, phase: 'quickResults' };
+      return { ...s, quickDevice: device, quickResult: result, quickExp: a.exp || null, phase: 'quickResults' };
     }
     case 'QUICK_RESET':
       /* 機種・種別の選択はそのまま残し、投入済みデータだけクリアする
        * (同じ種別の別ファイルをもう一度チェックしたいケースが多いため)。 */
-      return { ...s, quickDevice: null, quickResult: null, phase: 'quick' };
+      return { ...s, quickDevice: null, quickResult: null, quickExp: null, phase: 'quick' };
 
     case 'RESET':
       return { ...initial };

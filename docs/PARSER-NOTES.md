@@ -80,8 +80,54 @@ Known gaps / watch-outs:
   (Sprint 4 S4-4)に反映される。per-VLAN root election はモデル化されていない
   (デバイス単位の簡易モデルのため、これは意図的な簡略化)。
 
-## SonicWall (`parseSonicWall`) — readable SonicOS CLI text (NOT `.exp`)
-`.exp` exports are obfuscated and are intentionally unsupported. The parser expects a
+## SonicWall `.exp`(Settings Export)の復号と変換(v4.21.0)
+
+`.exp` は「難読化バイナリ」ではなく、**`key=value&key=value&…` の設定変数リストを
+base64 エンコードしたテキスト**(値は URL/percent エンコード。ファイル末尾に終端 `&&` が
+付く場合がある)。SonicOS 6 系・7 系(Gen7)とも同一方式。パスワード等の一部の値だけは機器側で
+暗号化されたまま格納され復号できない。根拠:
+- SonicWall 公式 KB「How to get the configurations of the firewall based on the exporting EXP
+  (Settings) file」(`base64 -d` / `certutil -decode` で可読化。SonicOS 7.1.2 の例あり)
+- 公開実装 pryorda/sonicwallRuleParser(同梱の実物 `.exp` とその復号テキストで本実装を検証:
+  507 変数が完全一致)、faridlav/SonicWallParser(.NET、Models/Parsing のキー名・列挙値)
+
+実装: `src/engine/expDecode.ts`(復号)→ `src/engine/expToCli.ts`(構造化 → CLI テキスト /
+Excel シート)→ `src/engine/xlsx.ts`(依存ライブラリなしの最小 XLSX ライタ)。UI は
+`src/ui/expArtifacts.ts` / `components/ExpConvertPanel.tsx`。
+
+確認済みの変数体系(N はスロット番号で連番ではない):
+- インターフェイス `iface_ifnum_N` / `iface_name_N`(`X3%3aV3` のように名前も percent
+  エンコード)/ `iface_phys_type_N`(0=物理, 2=VLAN)/ `interface_Zone_N` / `iface_comment_N` /
+  `iface_lan_ip_N` / `iface_lan_mask_N` / `iface_static_ip_N`(WAN 静的)/ `iface_static_mask_N` /
+  `iface_vlan_tag_N` / `iface_dhcp_enable_N` / `iface_port_disabled_N` /
+  `iface_{https,http,ssh,ping,snmp}_mgmt_N` / `eth_mtu_N`
+- アドレス `addrObjId_N` / `addrObjType_N`(1=host, 2=range, 4=network, 8=group)/
+  `addrObjZone_N` / `addrObjIp1_N` / `addrObjIp2_N`(network ではマスク、range では終端)。
+  グループ所属 `addro_atomToGrp_N`(メンバー)= `addro_grpToGrp_N`(グループ)
+- サービス `svcObjId_N` / `svcObjType_N`(1=object, 2=group)/ `svcObjIpType_N`(6=tcp, 17=udp,
+  1=icmp)/ `svcObjPort1_N` / `svcObjPort2_N`。グループ所属 `so_atomToGrp_N` / `so_grpToGrp_N`
+- アクセスルール `policyAction_N`(2=allow。1/0 は deny/discard で公開実装間で割り当てが
+  食い違うため「2 以外は遮断」とだけ解釈し、生の値を Excel に残す)/ `policySrcZone_N` /
+  `policyDstZone_N` / `policySrcNet_N` / `policyDstNet_N` / `policyDstSvc_N`(空 = any)/
+  `policyEnabled_N` / `policyComment_N`
+- NAT `natPolicyOrigSrc_N` / `OrigDst` / `OrigSvc` / `TransSrc` / `TransDst` / `TransSvc`
+  (空 = any / original)/ `natPolicySrcIface_N` / `natPolicyDstIface_N`(`iface_ifnum` の値、
+  -1 = any)/ `natPolicyEnabled_N` / `natPolicyComment_N`
+- ゾーン `zoneObjId_N` / `zoneObjZoneType_N`。DHCP `prefs_dhdynIpStart_N` / `IpEnd` /
+  `Gateway` / `Mask` / `dns0..2` / `domainname` / `LeaseTime` / `Enable` / `Comment`。
+  機器情報 `shortProdName` / `buildNum`
+
+CLI テキストへの変換で**意図的に省略**するもの(変換パネルと Excel に明示される):
+アドレス/サービスグループ(FACET はカスタムグループのメンバー展開に未対応)、FQDN
+オブジェクト、無効化された NAT ポリシー、`X*` 以外のインターフェイス(MGMT / U0 等)、
+静的ルート(`.exp` 側のキー名を確認できていない)。機器名(hostname)のキーも公式資料で
+確認できていないため、`firewallName` / `hostname` / `sysName` があれば採用し、無ければ
+`system name` を出力しない。
+
+## SonicWall (`parseSonicWall`) — readable SonicOS CLI text
+`.exp` は上記の変換を経て CLI テキストになってからこのパーサに渡される(直接は読まない)。
+スペースを含むオブジェクト名は `"…"` で引用された形を受け付け、`!` / `#` 行は注釈として
+認識済み扱いにする(v4.21.0)。 The parser expects a
 normalized, readable form derived from `show` output / documented CLI. Handled:
 `interface X#`/`X#:V#` with `zone`/`ip ... netmask`/`vlan`/`comment`,
 `address-object` (host/network/range, optional zone), `service-object`,
