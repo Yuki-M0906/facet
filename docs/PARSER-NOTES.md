@@ -93,7 +93,9 @@ base64 エンコードしたテキスト**(値は URL/percent エンコード。
 
 実装: `src/engine/expDecode.ts`(復号)→ `src/engine/expToCli.ts`(構造化 → CLI テキスト /
 Excel シート)→ `src/engine/xlsx.ts`(依存ライブラリなしの最小 XLSX ライタ)。UI は
-`src/ui/expArtifacts.ts` / `components/ExpConvertPanel.tsx`。
+独立モード「④ .exp コンバート」(`src/ui/phases/PhaseExp.tsx`、`expArtifacts.ts`、
+`components/ExpConvertPanel.tsx`)のみ。v4.22.0 以降、投入枠(Phase 03 / 簡易検証)は
+`.exp` を受け付けず、変換した `.txt` を投入する運用(変換と検証を混ぜない)。
 
 確認済みの変数体系(N はスロット番号で連番ではない):
 - インターフェイス `iface_ifnum_N` / `iface_name_N`(`X3%3aV3` のように名前も percent
@@ -125,7 +127,8 @@ CLI テキストへの変換で**意図的に省略**するもの(変換パネ�
 `system name` を出力しない。
 
 ## SonicWall (`parseSonicWall`) — readable SonicOS CLI text
-`.exp` は上記の変換を経て CLI テキストになってからこのパーサに渡される(直接は読まない)。
+`.exp` は「④ .exp コンバート」で CLI テキストに変換し、ユーザがその `.txt` を投入する
+(パーサも投入枠も `.exp` を直接は読まない)。
 スペースを含むオブジェクト名は `"…"` で引用された形を受け付け、`!` / `#` 行は注釈として
 認識済み扱いにする(v4.21.0)。 The parser expects a
 normalized, readable form derived from `show` output / documented CLI. Handled:

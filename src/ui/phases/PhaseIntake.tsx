@@ -40,9 +40,9 @@ export function PhaseIntake() {
       <div className="kicker">Phase 03 — Configuration Intake</div>
       <h1 className="title">コンフィグの投入</h1>
       <p className="lede">
-        <b>ルータ → スイッチ(台数分)</b>の順で投入します。SonicWall は <b>CLI の可読テキスト</b>、または
-        <b>Settings Export(<code>.exp</code>)</b>をそのまま投入できます(<code>.exp</code> はブラウザ内で復号・変換し、
-        変換テキストと Excel をダウンロードできます)。アクセスルール・アドレスオブジェクト・NAT を含めると FW検証が有効になります。
+        <b>ルータ → スイッチ(台数分)</b>の順で投入します。SonicWall は <b>CLI の可読テキスト</b>を投入してください
+        (Settings Export の <code>.exp</code> は「④ .exp コンバート」で .txt に変換してから投入できます)。
+        アクセスルール・アドレスオブジェクト・NAT を含めると FW検証が有効になります。
       </p>
       <div className="panel">
         <div className="eyebrow">Intake Sequence</div>

@@ -13,7 +13,6 @@ import { Faceplate, type PortHoverPos } from '../components/Faceplate';
 import { FindingsList } from '../components/FindingsList';
 import { ScoreRing } from '../components/ScoreRing';
 import { PortTooltip, buildPortTipContent, type TipState } from '../components/PortTooltip';
-import { ExpConvertPanel } from '../components/ExpConvertPanel';
 
 export function PhaseQuickResults() {
   const { state, dispatch } = useApp();
@@ -44,13 +43,6 @@ export function PhaseQuickResults() {
         ループ検出・到達性マトリクス・経路トレースなど、複数機器にまたがるチェックはこのモードでは
         実行されていません。総合的な検証には「① 検証モード」をご利用ください。
       </div>
-
-      {state.quickExp && (
-        <div className="panel">
-          <div className="eyebrow">Settings Export(.exp)の変換結果</div>
-          <ExpConvertPanel exp={state.quickExp} />
-        </div>
-      )}
 
       <div className="panel tier-hero">
         <div className="score">

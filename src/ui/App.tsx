@@ -16,6 +16,7 @@ import { PhaseResults } from './phases/PhaseResults';
 import { PhaseComplete } from './phases/PhaseComplete';
 import { PhaseQuick } from './phases/PhaseQuick';
 import { PhaseQuickResults } from './phases/PhaseQuickResults';
+import { PhaseExp } from './phases/PhaseExp';
 
 function PhaseRouter() {
   const { state } = useApp();
@@ -30,6 +31,7 @@ function PhaseRouter() {
     case 'complete': return <PhaseComplete />;
     case 'quick': return <PhaseQuick />;
     case 'quickResults': return <PhaseQuickResults />;
+    case 'exp': return <PhaseExp />;
   }
 }
 
