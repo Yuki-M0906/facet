@@ -3,6 +3,9 @@
  * FACET 用テキスト(.txt)/ 復号テキスト / Excel(.xlsx)に変換してダウンロードする
  * 独立機能。検証パイプラインとは統合しない(変換した .txt を ① 検証モード / ③ 簡易検証
  * モードに投入するかどうかはユーザの操作に委ねる)。処理はすべてブラウザ内で完結する。
+ *
+ * 変換結果は store(`expResults`)に置く(v4.22.1)。Header の「ホームに戻る」と本画面の
+ * 「← ホームに戻る」が同じ判定(結果が残っていれば確認ダイアログ)を共有するため。
  */
 
 import { useState } from 'react';
@@ -15,9 +18,12 @@ interface Failed {
   message: string;
 }
 
+export const EXP_HOME_CONFIRM =
+  'ホームに戻ります。画面上の .exp 変換結果は破棄されます(ダウンロード済みのファイルは残ります)。よろしいですか?';
+
 export function PhaseExp() {
-  const { dispatch } = useApp();
-  const [items, setItems] = useState<ExpArtifacts[]>([]);
+  const { state, dispatch } = useApp();
+  const items = state.expResults;
   const [failed, setFailed] = useState<Failed[]>([]);
   const [reading, setReading] = useState(false);
 
@@ -26,16 +32,13 @@ export function PhaseExp() {
     e.target.value = '';
     if (!files.length) return;
     setReading(true);
-    /* 複数ファイルを選んだ場合も 1 つずつ順に読む(同名ファイルは新しい方で置き換える)。 */
+    /* 複数ファイルを選んだ場合も 1 つずつ順に読む。 */
     const okList: ExpArtifacts[] = [];
     const ngList: Failed[] = [];
     let idx = 0;
     const next = () => {
       if (idx >= files.length) {
-        setItems((prev) => {
-          const names = new Set(okList.map((x) => x.fileName));
-          return [...prev.filter((x) => !names.has(x.fileName)), ...okList];
-        });
+        if (okList.length) dispatch({ type: 'EXP_ADD_RESULTS', items: okList });
         setFailed(ngList);
         setReading(false);
         return;
@@ -58,6 +61,11 @@ export function PhaseExp() {
     next();
   }
 
+  function goHome() {
+    if (items.length && !window.confirm(EXP_HOME_CONFIRM)) return;
+    dispatch({ type: 'RESET' });
+  }
+
   return (
     <section className="phase">
       <div className="kicker">Exp Convert</div>
@@ -73,6 +81,7 @@ export function PhaseExp() {
         <div className="eyebrow">Settings Export(.exp)ファイル</div>
         <p className="note">
           SonicOS 6 系・7 系(Gen7)の .exp に対応。複数ファイルをまとめて選択できます。
+          既に復号済みの key=value テキスト(本画面の「復号テキスト」出力など)も読めます。
           パスワード等の暗号化された値は復号できません。
         </p>
         <div className="slot ready" style={{ marginTop: 10 }}>
@@ -106,11 +115,11 @@ export function PhaseExp() {
       )}
 
       <div className="actions">
-        <button className="btn ghost" onClick={() => dispatch({ type: 'RESET' })}>
+        <button className="btn ghost" onClick={goHome}>
           ← ホームに戻る
         </button>
         {items.length > 0 && (
-          <button className="btn ghost" onClick={() => { setItems([]); setFailed([]); }}>
+          <button className="btn ghost" onClick={() => { dispatch({ type: 'EXP_CLEAR' }); setFailed([]); }}>
             変換結果をクリア
           </button>
         )}

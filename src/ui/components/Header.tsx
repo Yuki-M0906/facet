@@ -9,6 +9,7 @@ import { Stepper } from './Stepper';
 import { VersionHistoryModal } from './VersionHistoryModal';
 import { CURRENT_VERSION } from '../versionHistory';
 import { useApp } from '../store';
+import { EXP_HOME_CONFIRM } from '../phases/PhaseExp';
 
 export function Header() {
   const { state, dispatch } = useApp();
@@ -24,10 +25,12 @@ export function Header() {
     /* 全機能監査再調査: PhaseSelect の hasExisting / PhaseIntake の anyLoaded
      * (MED-14/MED-15)と同じガード方針。失うものが無い状態(Phase 00 で
      * まだ何も選択していない等)でまで確認ダイアログを出すのは不要な摩擦。 */
-    const hasProgress = state.mode !== null || !!state.router || !!state.quickDevice || !!state.quickResult;
+    const hasProgress = state.mode === 'exp'
+      ? state.expResults.length > 0   // ④: 変換結果が画面に無ければ失うものは無い
+      : state.mode !== null || !!state.router || !!state.quickDevice || !!state.quickResult;
     if (hasProgress) {
       const msg = state.mode === 'exp'
-        ? 'ホームに戻ります。画面上の .exp 変換結果は破棄されます(ダウンロード済みのファイルは残ります)。よろしいですか?'
+        ? EXP_HOME_CONFIRM
         : state.mode === 'quick'
         ? 'ホームに戻ります。選択した機種・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?'
         : 'ホームに戻ります。選択した機種・トポロジー・投入したコンフィグ・検証結果はすべて破棄されます。よろしいですか?';

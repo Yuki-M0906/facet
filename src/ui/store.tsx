@@ -34,7 +34,7 @@ import type {
   VerifyResult,
 } from '@engine/types';
 import { SMP_C1, SMP_C2, SMP_SW } from '../samples';
-
+import type { ExpArtifacts } from './expArtifacts';
 
 export type PhaseId =
   | 'mode' | 'select' | 'topo' | 'upload' | 'build' | 'analyze' | 'results' | 'complete'
@@ -93,6 +93,9 @@ export interface UIState {
   quickModelId: string;
   quickDevice: Device | null;
   quickResult: VerifyResult | null;
+  /* ④ .exp コンバート(v4.22.0)— 変換結果。Header の「ホームに戻る」が「失うものが
+   * あるか」を判定できるよう、ページのローカル state ではなく store に置く(v4.22.1)。 */
+  expResults: ExpArtifacts[];
 }
 
 export type Action =
@@ -120,6 +123,8 @@ export type Action =
   | { type: 'SET_QUICK_MODEL'; id: string }
   | { type: 'QUICK_VERIFY'; text: string }
   | { type: 'QUICK_RESET' }
+  | { type: 'EXP_ADD_RESULTS'; items: ExpArtifacts[] }
+  | { type: 'EXP_CLEAR' }
   | { type: 'RESET' };
 
 /* ---- Device 生成 ---- */
@@ -214,6 +219,7 @@ const initial: UIState = {
   quickModelId: CATALOG.router[0]!.id,
   quickDevice: null,
   quickResult: null,
+  expResults: [],
 };
 
 /* ---- 副作用ヘルパ(reducer 内で呼ぶ純粋なもののみ) ---- */
@@ -450,6 +456,14 @@ function reducer(s: UIState, a: Action): UIState {
       /* 機種・種別の選択はそのまま残し、投入済みデータだけクリアする
        * (同じ種別の別ファイルをもう一度チェックしたいケースが多いため)。 */
       return { ...s, quickDevice: null, quickResult: null, phase: 'quick' };
+
+    case 'EXP_ADD_RESULTS': {
+      /* 同名ファイルは新しい方で置き換える(再変換の想定)。 */
+      const names = new Set(a.items.map((x) => x.fileName));
+      return { ...s, expResults: [...s.expResults.filter((x) => !names.has(x.fileName)), ...a.items] };
+    }
+    case 'EXP_CLEAR':
+      return { ...s, expResults: [] };
 
     case 'RESET':
       return { ...initial };
