@@ -12,6 +12,8 @@
  *   2. base64 デコード(改行等の空白は無視、パディング不足は補完)
  *   3. UTF-8 として文字列化し `&`(または改行)で分割
  *   4. 各要素を最初の `=` で key / value に分割し、value を percent デコード
+ * base64 でなく「復号済みの key=value テキスト」が渡された場合は 2 を飛ばしてそのまま読む
+ * (v4.22.1。本ツールの復号テキスト出力や公式 KB の手順で復号したファイルを再投入できる)。
  *
  * DOM 非依存(atob / TextDecoder は Node 20+ とブラウザ双方のグローバル)。
  */
@@ -35,10 +37,23 @@ export interface ExpDecodeResult {
     percentDecodedCount: number;
     duplicateKeyCount: number;
     strippedTerminator: boolean;
+    /** base64 ではなく「復号済みの key=value テキスト」をそのまま読んだ場合 true */
+    alreadyDecoded: boolean;
   };
 }
 
 const B64_RE = /^[A-Za-z0-9+/=]+$/;
+const PAIR_RE = /^[A-Za-z0-9_.\-]+=/;
+
+/** 「復号済み key=value テキスト」(本ツールの復号テキスト出力や、公式 KB の手順で
+ *  certutil / base64 -d した結果)らしいか。CLI 可読テキストや Cisco config は `=` 始まりの
+ *  行がほぼ無いので誤判定しない。 */
+function looksLikeDecodedPairs(body: string): boolean {
+  const segs = body.replace(/\r\n?/g, '\n').split(body.indexOf('\n') >= 0 ? '\n' : '&').map((s) => s.trim()).filter(Boolean);
+  if (segs.length < 3) return false;
+  const n = segs.filter((s) => PAIR_RE.test(s)).length;
+  return n / segs.length >= 0.8;
+}
 
 /** 入力テキストが base64 の `.exp` らしいか(拡張子に依存しない判定)。 */
 export function looksLikeExp(text: string): boolean {
@@ -89,34 +104,46 @@ export function decodeExp(text: string): ExpDecodeResult {
     notes.push('ファイル末尾の終端記号(&)を除去しました。');
   }
   const compact = body.replace(/\s+/g, '');
-  if (compact.length !== body.length) notes.push('base64 本文中の改行・空白を無視しました。');
-  if (!B64_RE.test(compact)) {
-    throw new Error(
-      'base64 として解釈できない文字を含みます。SonicOS の Settings Export(.exp)ではないか、' +
-      '既に復号済みのテキストの可能性があります。',
-    );
-  }
-  let padded = compact;
-  const rem = padded.length % 4;
-  if (rem === 1) throw new Error('base64 の長さが不正です(ファイルが途中で切れている可能性)。');
-  if (rem > 0) {
-    padded = padded + '='.repeat(4 - rem);
-    notes.push('base64 のパディング(=)を補完しました。');
-  }
-
   let decoded: string;
-  try {
-    decoded = base64ToString(padded);
-  } catch {
-    throw new Error('base64 の復号に失敗しました。ファイルが破損しているか .exp ではありません。');
+  let alreadyDecoded = false;
+  if (B64_RE.test(compact)) {
+    if (compact.length !== body.length) notes.push('base64 本文中の改行・空白を無視しました。');
+    let padded = compact;
+    const rem = padded.length % 4;
+    if (rem === 1) throw new Error('base64 の長さが不正です(ファイルが途中で切れている可能性)。');
+    if (rem > 0) {
+      padded = padded + '='.repeat(4 - rem);
+      notes.push('base64 のパディング(=)を補完しました。');
+    }
+    try {
+      decoded = base64ToString(padded);
+    } catch {
+      throw new Error('base64 の復号に失敗しました。ファイルが破損しているか .exp ではありません。');
+    }
+  } else if (looksLikeDecodedPairs(body)) {
+    /* 既に復号済みのテキスト(本ツールの「復号テキスト」出力、または公式 KB の手順で
+     * certutil / base64 -d した結果)はそのまま読む。値に `&` や改行を含み得るため、
+     * 複数行なら改行のみ、1 行なら `&` のみで区切る。 */
+    decoded = body;
+    alreadyDecoded = true;
+    notes.push('base64 ではなく、復号済みの key=value テキストとして読み込みました。');
+  } else {
+    throw new Error(
+      'base64 として解釈できない文字を含みます。SonicOS の Settings Export(.exp)でも、' +
+      'その復号済みテキスト(key=value の並び)でもないようです。',
+    );
   }
 
   const pairs: ExpPair[] = [];
   const map: Record<string, string> = {};
   let percentDecodedCount = 0;
   let duplicateKeyCount = 0;
-  decoded.replace(/\r\n?/g, '\n').split(/[&\n]/).forEach((seg) => {
-    if (!seg) return;
+  const normalized = decoded.replace(/\r\n?/g, '\n');
+  const segs = alreadyDecoded
+    ? normalized.split(normalized.indexOf('\n') >= 0 ? '\n' : '&')
+    : normalized.split(/[&\n]/);
+  segs.forEach((seg) => {
+    if (!seg.trim()) return;
     const eq = seg.indexOf('=');
     if (eq <= 0) { notes.push('"=" を含まない要素をスキップしました: ' + seg.slice(0, 60)); return; }
     const key = seg.slice(0, eq);
@@ -132,7 +159,7 @@ export function decodeExp(text: string): ExpDecodeResult {
 
   return {
     pairs, map, notes,
-    stats: { pairCount: pairs.length, percentDecodedCount, duplicateKeyCount, strippedTerminator },
+    stats: { pairCount: pairs.length, percentDecodedCount, duplicateKeyCount, strippedTerminator, alreadyDecoded },
   };
 }
 

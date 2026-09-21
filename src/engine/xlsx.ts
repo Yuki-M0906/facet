@@ -46,6 +46,10 @@ function safeSheetName(name: string, used: Set<string>): string {
   return n;
 }
 
+/** Excel のセル文字数上限(超えると「修復」ダイアログ)。超過分は切り詰めて末尾に印を付ける。 */
+const MAX_CELL_CHARS = 32767;
+const TRUNC_MARK = '…[切詰]';
+
 function sheetXml(rows: XlsxCell[][]): string {
   const widths: number[] = [];
   const rowXml: string[] = [];
@@ -54,7 +58,8 @@ function sheetXml(rows: XlsxCell[][]): string {
     row.forEach((v, ci) => {
       if (v === null || v === undefined || v === '') return;
       const ref = colLetter(ci) + (ri + 1);
-      const text = String(v);
+      let text = String(v);
+      if (text.length > MAX_CELL_CHARS) text = text.slice(0, MAX_CELL_CHARS - TRUNC_MARK.length) + TRUNC_MARK;
       /* 幅の概算: 全角は 2 文字分 */
       let w = 0; for (const ch of text) w += ch.charCodeAt(0) > 0xff ? 2 : 1;
       widths[ci] = Math.max(widths[ci] || 0, Math.min(w, 60));
@@ -69,7 +74,7 @@ function sheetXml(rows: XlsxCell[][]): string {
     rowXml.push('<row r="' + (ri + 1) + '">' + cells.join('') + '</row>');
   });
   const cols = widths.length
-    ? '<cols>' + widths.map((w, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + (Math.max(w, 8) + 2) + '" customWidth="1"/>').join('') + '</cols>'
+    ? '<cols>' + Array.from(widths, (w, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + (Math.max(w || 0, 8) + 2) + '" customWidth="1"/>').join('') + '</cols>'
     : '';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
@@ -100,33 +105,48 @@ interface ZipEntry { name: string; data: Uint8Array }
 function u16(v: number): number[] { return [v & 0xff, (v >>> 8) & 0xff]; }
 function u32(v: number): number[] { return [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff]; }
 
+/** 複数の Uint8Array を 1 つに連結する。
+ *  `push(...bigArray)` / `[...a, ...b]` の展開は引数上限(数十万要素)で RangeError になるため、
+ *  数 MB になり得るシート XML(実機の .exp は数千〜数万変数)を扱うにはこの形が必須。 */
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  let len = 0;
+  parts.forEach((p) => { len += p.length; });
+  const out = new Uint8Array(len);
+  let o = 0;
+  parts.forEach((p) => { out.set(p, o); o += p.length; });
+  return out;
+}
+
 function buildZip(entries: ZipEntry[]): Uint8Array {
   const enc = new TextEncoder();
-  const local: number[] = [];
-  const central: number[] = [];
+  const local: Uint8Array[] = [];
+  const central: Uint8Array[] = [];
   let offset = 0;
+  let centralLen = 0;
   /* 固定の DOS 日時(2026-01-01 00:00)。再現性のため実時刻は使わない */
   const dosTime = 0, dosDate = ((2026 - 1980) << 9) | (1 << 5) | 1;
   entries.forEach((e) => {
     const nameBytes = enc.encode(e.name);
     const crc = crc32(e.data);
-    const hdr = [
+    const hdr = Uint8Array.from([
       ...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(dosTime), ...u16(dosDate),
       ...u32(crc), ...u32(e.data.length), ...u32(e.data.length), ...u16(nameBytes.length), ...u16(0),
-    ];
-    local.push(...hdr, ...nameBytes, ...e.data);
-    central.push(
+    ]);
+    local.push(hdr, nameBytes, e.data);
+    const cen = Uint8Array.from([
       ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(dosTime), ...u16(dosDate),
       ...u32(crc), ...u32(e.data.length), ...u32(e.data.length), ...u16(nameBytes.length), ...u16(0), ...u16(0),
-      ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...nameBytes,
-    );
+      ...u16(0), ...u16(0), ...u32(0), ...u32(offset),
+    ]);
+    central.push(cen, nameBytes);
+    centralLen += cen.length + nameBytes.length;
     offset += hdr.length + nameBytes.length + e.data.length;
   });
-  const eocd = [
+  const eocd = Uint8Array.from([
     ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(entries.length), ...u16(entries.length),
-    ...u32(central.length), ...u32(offset), ...u16(0),
-  ];
-  return new Uint8Array([...local, ...central, ...eocd]);
+    ...u32(centralLen), ...u32(offset), ...u16(0),
+  ]);
+  return concatBytes([...local, ...central, eocd]);
 }
 
 /* ---------- workbook ---------- */

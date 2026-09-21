@@ -218,9 +218,12 @@ export function parseSonicWall(text: string): SonicWallParsed {
         break matchLine;
       }
       if (!cur) break matchLine;
-      if ((m = t.match(/^zone\s+(\S+)/i))) {
-        cur.zone = m[1]!;
-        out.zonesByIf[cur.name] = m[1]!;
+      if ((m = t.match(/^zone\s+("[^"]*"|\S+)/i))) {
+        /* v4.22.1: address-object / access-rule と同様に `"Trusted Zone"` のような
+         * 引用付き(スペース入り)ゾーン名を受け付ける。従来は `"Trusted` で切れていた。 */
+        const z = uq(m[1]!);
+        cur.zone = z;
+        out.zonesByIf[cur.name] = z;
         recognized = true;
       } else if (/^ip-?assignment\s+\S+/i.test(t)) {
         /* 全機能監査 Medium-7: 以前は「zone未設定ならip-assignmentの引数をzone名として

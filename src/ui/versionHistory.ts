@@ -19,9 +19,29 @@ export interface VersionEntry {
   changes: string[];
 }
 
-export const CURRENT_VERSION = '4.22.0';
+export const CURRENT_VERSION = '4.22.1';
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '4.22.1',
+    date: '2026-09-21',
+    title: '.exp コンバート追加後の総合監査 — 大容量 .exp での失敗・引用付きゾーン・確認ダイアログの不整合を修正',
+    changes: [
+      '[修正] Excel 生成: 実機規模(数千〜数万変数、数 MB)の .exp で ZIP 連結が RangeError になり' +
+        'Excel を出力できなかった問題を修正(配列展開をやめ Uint8Array で連結)。3MB 相当の' +
+        '回帰テストを追加。',
+      '[修正] Excel 生成: 1 セル 32,767 文字を超える値(証明書等)で Excel が「修復」を要求する' +
+        '問題を修正(切り詰めて印を付ける)。空列がある場合の列幅 NaN も修正。',
+      '[修正] SonicWall パーサ: interface の zone "Trusted Zone" のような引用付き(スペース入り)' +
+        'ゾーン名が "Trusted で切れていた問題を修正。.exp 変換 → 検証の往復テストを追加。',
+      '[改善] .exp コンバート: base64 ではなく「復号済みの key=value テキスト」(本画面の復号' +
+        'テキスト出力や公式 KB の手順で復号したファイル)もそのまま読めるように。エラー文言も整理。',
+      '[修正] .exp コンバート: 変換結果を store に移し、Header の「ホームに戻る」と画面内の' +
+        '「← ホームに戻る」が同じ判定(結果が残っていれば確認、無ければ即座に戻る)を共有する' +
+        'ように統一。未使用になっていた判定関数を削除。',
+      '[文書] ARCHITECTURE.md の PhaseId 一覧に exp を追加、ユーザーガイドの版数を更新。',
+    ],
+  },
   {
     version: '4.22.0',
     date: '2026-09-20',

@@ -87,7 +87,22 @@ describe('decodeExp — .exp の復号', () => {
   });
   it('base64 でない入力(CLI テキスト)は明確なエラーになる', () => {
     expect(() => decodeExp(SMP_SW)).toThrow(/base64/);
+    expect(() => decodeExp(SMP_C1)).toThrow(/base64/);
     expect(() => decodeExp('')).toThrow();
+  });
+  it('復号済みの key=value テキスト(1 行 1 変数 / & 区切り)はそのまま読める(v4.22.1)', () => {
+    const a = decodeExp(EXP);
+    const b = decodeExp(expToDecodedText(a));           // 本ツールの「復号テキスト」を再投入
+    expect(b.map).toEqual(a.map);
+    expect(b.stats.alreadyDecoded).toBe(true);
+    expect(b.notes.some((n) => n.includes('復号済み'))).toBe(true);
+    const c = decodeExp(DECODED);                       // 公式 KB の手順で base64 -d した & 区切り
+    expect(c.map).toEqual(a.map);
+    /* 復号済みテキストでは値に & や改行を含み得る → 複数行なら改行のみで区切る */
+    const d = decodeExp('k1=R&D\nk2=v2\nk3=v3\nk4=v4');
+    expect(d.map['k1']).toBe('R&D');
+    expect(d.stats.pairCount).toBe(4);
+    expect(a.stats.alreadyDecoded).toBe(false);
   });
   it('looksLikeExp は .exp を true、CLI テキスト/Cisco config を false と判定する', () => {
     expect(looksLikeExp(EXP)).toBe(true);
@@ -295,6 +310,51 @@ describe('buildXlsx — 依存なし XLSX ライタ', () => {
   it('crc32 が既知値と一致する(ZIP の整合性の根拠)', () => {
     expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926);
     expect(crc32(new Uint8Array(0))).toBe(0);
+  });
+  it('数 MB のシートでも RangeError にならず、ZIP のサイズ計算が正しい(v4.22.1: 展開構文を廃止)', () => {
+    /* 実機の .exp(数千〜数万変数)相当: 20,000 行 × 3 列 ≈ 3MB の XML */
+    const rows: (string | number)[][] = [['k', 'v', 'raw']];
+    for (let i = 0; i < 20000; i++) rows.push(['key_' + i, 'value-'.repeat(8) + i, 'raw%20' + i]);
+    const big = buildXlsx([{ name: 'big', rows }]);
+    expect(big.length).toBeGreaterThan(2_000_000);
+    const eocdIdx = big.length - 22;
+    expect(Array.from(big.slice(eocdIdx, eocdIdx + 4))).toEqual([0x50, 0x4b, 0x05, 0x06]);
+    /* EOCD のセントラルディレクトリ開始オフセット = ローカル部分の総バイト数 */
+    const cdOffset = big[eocdIdx + 16]! | (big[eocdIdx + 17]! << 8) | (big[eocdIdx + 18]! << 16) | (big[eocdIdx + 19]! << 24);
+    expect(Array.from(big.slice(cdOffset, cdOffset + 4))).toEqual([0x50, 0x4b, 0x01, 0x02]);
+  });
+  it('Excel のセル上限(32,767 文字)を超える値は切り詰めて印を付ける(v4.22.1)', () => {
+    const long = 'x'.repeat(40000);
+    const s = new TextDecoder('utf-8').decode(buildXlsx([{ name: 't', rows: [['h'], [long]]}]));
+    const m = s.match(/<c r="A2" t="inlineStr"><is><t>([^<]*)<\/t>/);
+    expect(m).not.toBeNull();
+    expect(m![1]!.length).toBe(32767);
+    expect(m![1]!.endsWith('…[切詰]')).toBe(true);
+  });
+  it('内容の無い列があっても <cols> の width が NaN にならない', () => {
+    const s = new TextDecoder('utf-8').decode(buildXlsx([{ name: 't', rows: [['a', '', 'c'], ['1', '', '3']] }]));
+    expect(s).not.toContain('NaN');
+    expect(s).toContain('<col min="2" max="2" width="10"');
+  });
+});
+
+describe('parseSonicWall — 引用付きゾーン名(v4.22.1)', () => {
+  it('interface の zone "Trusted Zone" が引用符なしのゾーン名として取れる', () => {
+    const sp = parseSonicWall('interface X2\n zone "Trusted Zone"\n ip 192.168.30.1 netmask 255.255.255.0\n');
+    expect(sp.interfaces['X2']!.zone).toBe('Trusted Zone');
+    expect(sp.zonesByIf['X2']).toBe('Trusted Zone');
+    expect(sp.coverage.unrecognizedLines).toEqual([]);
+  });
+  it('.exp のスペース入りゾーンは CLI 変換 → パーサでも同じゾーン名として往復する', () => {
+    const kv = ['iface_ifnum_0=0', 'iface_name_0=X2', 'iface_phys_type_0=0', 'interface_Zone_0=Trusted%20Zone',
+      'iface_lan_ip_0=192.168.30.1', 'iface_lan_mask_0=255.255.255.0',
+      'policyAction_0=2', 'policySrcZone_0=Trusted%20Zone', 'policyDstZone_0=WAN', 'policySrcNet_0=', 'policyDstNet_0=', 'policyDstSvc_0=', 'policyEnabled_0=1'];
+    const cli = expModelToCli(extractExpModel(decodeExp(btoa(kv.join('&'))).map)).text;
+    expect(cli).toContain('interface X2\n zone "Trusted Zone"');
+    const sp = parseSonicWall(cli);
+    expect(sp.interfaces['X2']!.zone).toBe('Trusted Zone');
+    expect(sp.rules[0]!.from).toBe('Trusted Zone');
+    expect(sp.coverage.unrecognizedLines).toEqual([]);
   });
 });
 

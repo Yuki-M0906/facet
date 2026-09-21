@@ -7,7 +7,7 @@
  */
 
 import {
-  looksLikeExp, decodeExp, expToDecodedText, extractExpModel, expModelToCli, expModelToSheets, buildXlsx,
+  decodeExp, expToDecodedText, extractExpModel, expModelToCli, expModelToSheets, buildXlsx,
 } from '@engine/index';
 import type { ExpCliResult } from '@engine/index';
 
@@ -22,11 +22,6 @@ export interface ExpArtifacts {
   notes: string[];
   counts: ExpCliResult['counts'];
   pairCount: number;
-}
-
-/** 拡張子が .exp、または中身が base64 の .exp らしければ変換対象。 */
-export function isExpUpload(fileName: string, text: string): boolean {
-  return /\.exp$/i.test(fileName) || looksLikeExp(text);
 }
 
 export function baseName(fileName: string): string {

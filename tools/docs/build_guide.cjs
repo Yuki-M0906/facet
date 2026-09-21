@@ -83,7 +83,7 @@ body.push(new Paragraph({spacing:{before:520,after:0},alignment:AlignmentType.CE
 body.push(new Paragraph({spacing:{before:60,after:0},alignment:AlignmentType.CENTER,
   children:[new TextRun({text:"ネットワーク構成検証ツール ユーザーガイド",size:24,color:"555555"})]}));
 body.push(new Paragraph({spacing:{before:900,after:0},alignment:AlignmentType.CENTER,
-  children:[new TextRun({text:"版数：v4.22.0 ・ 発行日：2026年9月20日",size:20,color:"777777"})]}));
+  children:[new TextRun({text:"版数：v4.22.1 ・ 発行日：2026年9月21日",size:20,color:"777777"})]}));
 body.push(new Paragraph({spacing:{before:200,after:0},alignment:AlignmentType.CENTER,
   children:[new ExternalHyperlink({link:FACET_URL,children:[new TextRun({text:FACET_URL,size:20,color:GOLDD,underline:{type:"single",color:GOLDD}})]})]}));
 body.push(new Paragraph({children:[new PageBreak()]}));
@@ -268,7 +268,7 @@ body.push(step("「ファイル選択」で .exp を選びます。複数ファ�
 body.push(step("必要な成果物をダウンロードします。検証したい場合は「FACET用テキスト（.txt）」を保存し、「① 検証モード」の Phase03 ルータ枠、または「③ 簡易検証モード」（ルータ）に投入します。","sq"));
 body.push(tbl([3000,7466],["ダウンロード","内容"],[
  ["FACET用テキスト（.txt）","変換後の CLI 可読テキスト。検証モード・簡易検証モードにそのまま投入できます。"],
- ["復号テキスト（全変数）","復号した設定変数を 1 行 1 変数で並べたもの。差分比較や検索に。"],
+ ["復号テキスト（全変数）","復号した設定変数を 1 行 1 変数で並べたもの。差分比較や検索に。このファイルを④に再投入することもできます。"],
  ["Excel（.xlsx）","概要／インターフェイス／ゾーン／アドレス・サービスのオブジェクトとグループ／アクセスルール／NAT／DHCP／全変数の 11 シート。人が読み合わせるための一覧表です。"]
 ]));
 body.push(spacer(40));
@@ -372,7 +372,7 @@ body.push(tbl([3200,3633,3633],["指摘","原因","対処"],[
 
 /* ===== 13. バージョン履歴 ===== */
 body.push(H1("13. バージョン履歴の確認"));
-body.push(P([run("画面右上のバージョンバッジ（例："),mono("v4.22.0"),run("）をクリックすると、これまでの変更履歴がモーダルで表示されます。どのバージョンで何が変わったかをこの画面だけで確認できます。")]));
+body.push(P([run("画面右上のバージョンバッジ（例："),mono("v4.22.1"),run("）をクリックすると、これまでの変更履歴がモーダルで表示されます。どのバージョンで何が変わったかをこの画面だけで確認できます。")]));
 
 /* ===== 14. 注意事項 ===== */
 body.push(H1("14. ご利用上の注意"));

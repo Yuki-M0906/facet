@@ -113,10 +113,12 @@ CAP カテゴリ(`verify.ts`)がこのデータと config を突合して検証�
 `state` と `dispatch` を取る。
 
 ウィザード遷移は `phase: PhaseId`(`mode|select|topo|upload|build|analyze|results|
-complete|quick|quickResults`)。`PhaseRouter` が現在の phase 名に応じて該当
-コンポーネントを描画する。`quick`/`quickResults`(簡易検証モード、v4.19.0)は
-機種選定・トポロジー指定を経ないため、通常の 6 段階ステッパー(`PHASE_STEP`)
-とは対応せず、Header 側でステッパー自体を非表示にする。
+complete|quick|quickResults|exp`)。`PhaseRouter` が現在の phase 名に応じて該当
+コンポーネントを描画する。`quick`/`quickResults`(簡易検証モード、v4.19.0)と
+`exp`(④ .exp コンバート、v4.22.0)は機種選定・トポロジー指定を経ないため、通常の
+6 段階ステッパー(`PHASE_STEP`)とは対応せず、Header 側でステッパー自体を非表示にする。
+`exp` は検証パイプラインを一切通らない変換専用画面で、変換結果は `expResults` に保持し
+(`EXP_ADD_RESULTS` / `EXP_CLEAR`)、`RESET` で破棄される。
 
 副作用(FileReader、Blob ダウンロード、setTimeout、navigator.clipboard、window.print)
 は reducer の外、コンポーネントのイベントハンドラ / `useEffect` で扱う。
