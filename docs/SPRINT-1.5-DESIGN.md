@@ -1,17 +1,28 @@
-# Sprint 1.5 設計図 — Vite + React + TypeScript ポート
+# Sprint 1.5 design — Vite + React + TypeScript port / 設計書（アーカイブ）
 
-> Author: Yuki (proposed by Claude)
-> Status: **✅ COMPLETED** (2026-06-23、v4.0.0 リリース)
-> Target: v3.1.0(現行 vanilla)→ v4.0.0(TS 化)
-> 期間: 1 日(設計通りの 5 ステップで完遂、46 テスト全 PASS)
+> **Archived design document.** This is the plan that took FACET from the vanilla
+> v3.1.0 single file to the TypeScript / React v4.0.0, written before the work and kept
+> as a record. It was completed on 2026-06-23 in one day, in the five steps below, with
+> all 46 tests passing. Later sprints changed some details (for example the deliverable
+> is now `dist/index.html`, the test files were reorganised, and the engine gained the
+> `.exp` modules); for the current state read `ARCHITECTURE.md`. The body is in Japanese
+> and is left as written.
+>
+> **設計書（アーカイブ）。** 素の JavaScript だった v3.1.0 の単一ファイルを、TypeScript／React の v4.0.0 に移植したときの計画書です。
+> 作業前に書き、記録として残しています。2026年6月23日に、下記の5ステップどおり1日で完了し、テスト46件はすべて合格しました。
+> その後のスプリントで細部は変わっています（配布物は `dist/index.html` になり、テストファイルは再編され、エンジンには `.exp` 関連の
+> モジュールが加わりました）。現状は `ARCHITECTURE.md` を参照してください。本文は当時のまま日本語です。
+>
+> Status: 完了（2026年6月23日、v4.0.0 リリース）
+> Target: v3.1.0（素の JavaScript）→ v4.0.0（TypeScript 化）
+> 期間: 1日（設計どおりの5ステップで完遂、テスト46件すべて合格）
 >
 > 完了レポート:
-> - Step 1 ✓ Vite + React + TS 雛形
-> - Step 2 ✓ エンジン TS 化、46 テスト全 PASS
-> - Step 3 ✓ UI を 16 コンポーネントに分解
-> - Step 4 ✓ 単一 HTML ビルド出力(220KB、外部依存ゼロ)
-> - Step 5 ✓ 旧版整理 + ドキュメント更新 + リリースノート
-
+> - Step 1 ✓ Vite＋React＋TS の雛形
+> - Step 2 ✓ エンジンの TS 化、テスト46件すべて合格
+> - Step 3 ✓ UI を16コンポーネントに分解
+> - Step 4 ✓ 単一 HTML のビルド出力（220KB、外部依存ゼロ）
+> - Step 5 ✓ 旧版の整理＋ドキュメント更新＋リリースノート
 ---
 
 ## 1. 設計の原則
@@ -31,7 +42,7 @@
 |---|---|---|
 | 言語 | **TypeScript 5.x** (strict) | 型が「正確な機材シミュレーション」の屋台骨 |
 | ビルド | **Vite 5.x** | 業界標準、起動高速、設定簡素 |
-| UI | **React 18** | ROADMAP の意思、Yuki さんの既存 NetSim Pro スタックと一致 |
+| UI | **React 18** | ROADMAP の方針どおり。オーナーが既に使っているスタックと一致 |
 | 状態管理 | **React `useReducer` + Context** | ウィザード規模ならこれで十分。Zustand 等は追加しない |
 | バンドル | **vite-plugin-singlefile** | 単一 HTML 出力(配布形態維持) |
 | テスト | **Vitest** + **@testing-library/react** | 既存 plain-Node テストをほぼコピペで移植可 |
@@ -434,7 +445,7 @@ npm run coverage   # カバレッジ(v8)
 ## 12. 承認後の進め方
 
 1. この設計図をご確認 → 承認・修正コメント
-2. Yuki さん側で **Node.js LTS インストール** → `node -v` を確認
+2. オーナー側で **Node.js LTS をインストール** → `node -v` を確認
 3. インストール完了の合図をいただいたら、Step 1 から順に着手
 4. 各 Step 完了ごとに「次行きます」と報告(中断・修正指示の余地を残す)
 

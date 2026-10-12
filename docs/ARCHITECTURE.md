@@ -1,31 +1,34 @@
-# Architecture (v4.0.0)
+# Architecture / アーキテクチャ
 
-## 2 層構成
+*English first, 日本語は後半にあります。Applies to v4.0.0 and later.*
+
+## Two layers
 
 ```
 ┌─────────────────────────────────────────────┐
-│  src/ui/  React コンポーネント + Context     │
-│  ↓ 片方向依存                                │
-│  src/engine/index.ts  公開 API(named export)│
+│  src/ui/        React components + Context   │
+│  ↓ one-way dependency                        │
+│  src/engine/index.ts   public API            │
 │  ↓                                           │
-│  src/engine/  パーサ・評価・経路・マトリクス │
+│  src/engine/    parsers · verify · trace     │
 └─────────────────────────────────────────────┘
 ```
 
-- **エンジン**(`src/engine/*.ts`)— DOM 非依存の純粋ロジック。Node でも React Native でも
-  React Server Components でも実行できる。Vitest が直接呼んでテストする。
-- **UI**(`src/ui/**/*.tsx`)— React 18。`engine/index.ts` 経由でのみエンジンを使う。
-  状態は `useReducer` + Context(`src/ui/store.tsx`)に中央集権。
+- **Engine** (`src/engine/*.ts`) — pure logic with no DOM dependency. It runs in Node,
+  React Native or React Server Components unchanged; Vitest calls it directly.
+- **UI** (`src/ui/**/*.tsx`) — React 18. It uses the engine only through
+  `engine/index.ts`. State is centralised in one `useReducer` + Context
+  (`src/ui/store.tsx`).
 
-**禁止事項:**
-- `src/engine/*` から `react` / `document` / `window` を import すること
-- `src/ui/*` から `src/engine` の内部ファイル(parsers/cisco.ts 等)を直接 import すること
-  → 必ず `@engine/*` (= `src/engine/index.ts`)経由
+**Forbidden:**
+- importing `react`, `document` or `window` from `src/engine/*`;
+- importing internal engine files (e.g. `parsers/cisco.ts`) from `src/ui/*` — always go
+  through `@engine/*` (= `src/engine/index.ts`).
 
-## データモデル
+## Data model
 
 ```ts
-// engine が扱う state(検証時に UI が組み立てて渡す)
+// the state the engine works on (assembled by the UI at verification time)
 interface AppState {
   router:   Device;
   switches: Device[];
@@ -41,44 +44,44 @@ interface Device {
   name:    string;
   unit?:   number;
   ports:   RuntimePort[];     // { label, iface, type, speed, status, cfg, msg }
-  config:  string | null;     // 投入された生テキスト
+  config:  string | null;     // raw text as submitted
   parsed:  CiscoParsed | SonicWallParsed | null;
 }
 ```
 
-`port.status` ∈ `ok | err | lack | idle`。`port.cfg` は `mapToPorts` で
-canonical-iface マッチして対応付けられたパース済 IF。
+`port.status` is one of `ok | err | lack | idle`. `port.cfg` is the parsed interface that
+`mapToPorts` matched to the port by canonical interface name.
 
-**Port-channel 継承(Sprint 4 S4-1)**: `interface Port-channel<N>` は物理ポート
-ラベルに直接一致しないため、`mapToPorts` は `channel-group <N>` を持つ物理
-メンバーポートへ、対応する `Port-channel<N>` の switchport/trunk/IP 設定を
-(メンバー側が自分自身の値を持たない項目に限り)継承する。実務で多い
-「L2 設定は Port-channel 側にのみ書く」パターンを取りこぼさないための拡張。
+**Port-channel inheritance (Sprint 4, S4-1).** `interface Port-channel<N>` never matches a
+physical port label, so `mapToPorts` copies the switchport / trunk / IP settings of
+`Port-channel<N>` onto the physical member ports that carry `channel-group <N>` — only for
+items the member does not set itself. Without this the common practice of writing L2
+settings on the port-channel only was silently lost.
 
-## 公開 API
+## Public API
 
-`src/engine/index.ts` から re-export される名前付きエクスポート群:
+Named exports re-exported from `src/engine/index.ts`:
 
-| 名前 | 役割 |
+| Name | Role |
 |---|---|
-| `CATALOG`, `switchPorts` | 機材カタログ(15 SKU)とポート列生成 |
+| `CATALOG`, `switchPorts` | equipment catalog (15 SKUs) and port-list generation |
 | `parseCisco(text)` | IOS / IOS-XE running-config → `CiscoParsed` |
-| `parseSonicWall(text)` | SonicOS CLI 可読テキスト → `SonicWallParsed` |
-| `mapToPorts(device)` | `device.parsed.interfaces` を `device.ports[].cfg` に対応付け |
-| `buildSubnets(state)` | L3 サブネット一覧を抽出 |
-| `evalFW(rparsed, sZone, dZone, sIp, dIp, svc)` | オブジェクト対応 FW 判定 |
-| `WELL_KNOWN_SVC`, `resolveSvc`, `svcMatch`, `objContains` | FW 内部ヘルパ(必要なら直接使用可) |
-| `buildMatrix(state, subnets)` | 到達性マトリクス |
-| `pathTrace(state, srcCidr, dstSpec, svc)` | SRC→...→DST のホップ列 |
-| `verify(state)` | フル検証(`{findings, subnets, matrix, cats, loop, score, nErr, nLack}`) |
-| `autoLinks(state)` | star / cascade 自動配線 |
-| `generateCiscoConfig(draft)`, `generateSonicWallConfig(draft)` | 作成モード用ジェネレータ(parseCisco/parseSonicWall の逆方向) |
-| `isCiscoPortConfigured(port)` | 作成モード UI 用ヘルパ(ポートに設定済み内容があるか) |
-| `expandVlans`, `expandIfRange`, `canonIf`, `uniq` | パーサ用ヘルパ |
-| `ipToInt` / `intToIp` / `maskBits` / `bitsToMaskInt` / `subnetOf` / `inSubnet` | IPv4 ヘルパ |
+| `parseSonicWall(text)` | readable SonicOS CLI text → `SonicWallParsed` |
+| `mapToPorts(device)` | attach `device.parsed.interfaces` to `device.ports[].cfg` |
+| `buildSubnets(state)` | extract the L3 subnet list |
+| `evalFW(rparsed, sZone, dZone, sIp, dIp, svc)` | object-aware firewall decision |
+| `WELL_KNOWN_SVC`, `resolveSvc`, `svcMatch`, `objContains` | firewall helpers (usable directly) |
+| `buildMatrix(state, subnets)` | reachability matrix |
+| `pathTrace(state, srcCidr, dstSpec, svc)` | hop list SRC → … → DST |
+| `verify(state)` | full verification (`{findings, subnets, matrix, cats, loop, score, nErr, nLack}`) |
+| `autoLinks(state)` | automatic star / cascade cabling |
+| `generateCiscoConfig(draft)`, `generateSonicWallConfig(draft)` | build-mode generators (the inverse of the parsers) |
+| `isCiscoPortConfigured(port)` | build-mode UI helper |
+| `expandVlans`, `expandIfRange`, `canonIf`, `uniq` | parser helpers |
+| `ipToInt` / `intToIp` / `maskBits` / `bitsToMaskInt` / `subnetOf` / `inSubnet` | IPv4 helpers |
 
-型定義は同じく `src/engine/index.ts` から `export type *` で再公開。
-TS の `paths` で `@engine` / `@ui` alias を切ってある。
+Types are re-exported from the same file with `export type *`. `tsconfig` defines the
+`@engine` / `@ui` path aliases.
 
 ## Finding shape
 
@@ -93,87 +96,245 @@ interface Finding {
 }
 ```
 
-`CAP` カテゴリは Sprint 2(機材カタログ実物化)で本格運用開始済み。
-`catalog.ts` の各 SKU の `capabilities` フィールド(VLAN/SVI/ACL 数上限、
-STP variant 対応可否等)と config を突合し、超過・非対応を検出する。
+`CAP` has been live since Sprint 2 (real catalog data). It compares each SKU's
+`capabilities` (VLAN / SVI / ACL limits, supported STP variants, …) with the config and
+reports exceeded limits and unsupported features.
 
-## CATALOG はデータ、ロジックではない
+## The catalog is data, not logic
 
-`src/engine/catalog.ts` の `CATALOG` 定数は 15 SKU の代表ポート構成に加え、
-Sprint 2 で追加した `capabilities` フィールド(L3 対応、Max VLAN、PoE、
-STP variant、対応 OS バージョン等)を持つ TypeScript リテラル。
-CAP カテゴリ(`verify.ts`)がこのデータと config を突合して検証する。
+`CATALOG` in `src/engine/catalog.ts` is a TypeScript literal: the representative port
+layout of 15 SKUs plus the `capabilities` added in Sprint 2 (L3 support, max VLANs, PoE,
+STP variants, supported OS versions, …). The CAP checks in `verify.ts` read this data.
 
-ルータ:TZ270 / TZ370 / TZ470 / TZ570 / TZ670 / NSa2700 / NSa3700。
-スイッチ:C1000-24/48 / C2960X-24/48 / C9200-24/48 / C9300-24/48。
+Routers: TZ270 / TZ370 / TZ470 / TZ570 / TZ670 / NSa2700 / NSa3700.
+Switches: C1000-24/48 / C2960X-24/48 / C9200-24/48 / C9300-24/48.
 
-## UI 状態管理(`src/ui/store.tsx`)
+## UI state (`src/ui/store.tsx`)
 
-中央集権 1 つの `reducer` + `Context`。コンポーネントは `useApp()` フック経由で
-`state` と `dispatch` を取る。
+One reducer, one Context. Components obtain `state` and `dispatch` through `useApp()`.
 
-ウィザード遷移は `phase: PhaseId`(`mode|select|topo|upload|build|analyze|results|
-complete|quick|quickResults|exp`)。`PhaseRouter` が現在の phase 名に応じて該当
-コンポーネントを描画する。`quick`/`quickResults`(簡易検証モード、v4.19.0)と
-`exp`(④ .exp コンバート、v4.22.0)は機種選定・トポロジー指定を経ないため、通常の
-6 段階ステッパー(`PHASE_STEP`)とは対応せず、Header 側でステッパー自体を非表示にする。
-`exp` は検証パイプラインを一切通らない変換専用画面で、変換結果は `expResults` に保持し
-(`EXP_ADD_RESULTS` / `EXP_CLEAR`)、`RESET` で破棄される。
+Wizard position is `phase: PhaseId` (`mode | select | topo | upload | build | analyze |
+results | complete | quick | quickResults | exp`). `PhaseRouter` renders the component for
+the current phase. `quick` / `quickResults` (quick check, v4.19.0) and `exp` (`.exp`
+convert, v4.22.0) skip device selection and topology, so they do not map onto the six-step
+stepper (`PHASE_STEP`); the header hides the stepper for them. `exp` never enters the
+verification pipeline; its results live in `expResults` (`EXP_ADD_RESULTS` /
+`EXP_CLEAR`) and are discarded by `RESET`.
 
-副作用(FileReader、Blob ダウンロード、setTimeout、navigator.clipboard、window.print)
-は reducer の外、コンポーネントのイベントハンドラ / `useEffect` で扱う。
-reducer は engine の純関数のみを呼ぶ。
+Side effects (FileReader, Blob downloads, `setTimeout`, `navigator.clipboard`,
+`window.print`) live outside the reducer, in event handlers and `useEffect`. The reducer
+calls only pure engine functions.
+
+## Build and distribution
+
+```
+npm run build
+  → tsc -p tsconfig.json   (type check, no emit)
+  → vite build              (bundle + minify + inline via vite-plugin-singlefile)
+  → dist/index.html         (CSS / JS / assets all inlined, ~330 KB)
+```
+
+The deliverable is **one self-contained HTML file**:
+- zero external HTTP requests (Google Fonts removed; system fonts only);
+- no `localStorage` / `sessionStorage`;
+- works by double-click, on GitHub Pages, on Cloudflare Pages, or from a file share.
+
+## Rendering and SVG
+
+Faceplates and the logical topology diagram are hand-written SVG
+(`src/ui/components/Faceplate.tsx`, `TopologyGraph.tsx`). SVG text uses
+`Meiryo UI, sans-serif` for device names and `Consolas, monospace` for technical labels.
+
+Colours follow a gem theme (CSS variables `--emerald / --garnet / --topaz / --steel /
+--sapphire`): emerald = ok, garnet = err, topaz = lack, steel = idle, sapphire = info
+(reserved).
+
+## Path-trace logic
+
+`pathTrace(state, srcCidr, dstSpec, service)`:
+
+1. **Validate the source** — `srcCidr` must exist in `buildSubnets(state)`.
+2. **Same-subnet early return** — if source and destination share a CIDR, return SRC and
+   DST only (pure L2; no router, no firewall).
+3. **Build the L3 path** — SRC → (L2 access switch → trunk) → GW (router SVI) → RT
+   (connected route, or default route to WAN) → FW (`evalFW`) → (NAT, WAN egress only)
+   → DST.
+
+`evalFW` goes through the bidirectional service-overlap check (`svcMatch`), so a rule
+for `svc-https` correctly returns `deny` for an `ftp` request (fixed in Sprint 1).
+
+## Tests
+
+```
+test/engine/engine.test.ts    ← engine (parsers, verify, matrix, pathTrace, …)
+test/engine/builder.test.ts   ← build mode (generator round-trip guarantee)
+test/engine/exp.test.ts       ← .exp decode / convert / XLSX
+test/version.test.ts          ← version consistency
+```
+
+The case count keeps growing; `npm test` prints the current number. Every new rule and
+every bug fix adds a case. `npm test` must stay green.
+
+---
+
+# 日本語版
+
+*v4.0.0 以降に適用。*
+
+## 2層構成
+
+```
+┌─────────────────────────────────────────────┐
+│  src/ui/        React コンポーネント＋Context │
+│  ↓ 一方向の依存                              │
+│  src/engine/index.ts   公開 API              │
+│  ↓                                           │
+│  src/engine/    パーサ · verify · 経路        │
+└─────────────────────────────────────────────┘
+```
+
+- **エンジン**（`src/engine/*.ts`）— DOM に依存しない純粋なロジック。Node でも React Native でも React Server Components でも
+  そのまま動く。Vitest は直接これを呼んでテストする。
+- **UI**（`src/ui/**/*.tsx`）— React 18。エンジンは `engine/index.ts` 経由でのみ使う。状態は1つの `useReducer`＋Context
+  （`src/ui/store.tsx`）に集約する。
+
+**禁止事項：**
+- `src/engine/*` から `react`、`document`、`window` を import すること
+- `src/ui/*` からエンジンの内部ファイル（`parsers/cisco.ts` など）を直接 import すること。必ず `@engine/*`（＝`src/engine/index.ts`）を通す
+
+## データモデル
+
+```ts
+// エンジンが扱う状態（検証時に UI が組み立てて渡す）
+interface AppState {
+  router:   Device;
+  switches: Device[];
+  devices:  Device[];     // = [router, ...switches]
+  topoMode: 'star' | 'cascade' | 'manual';
+  links:    Link[];
+}
+
+interface Device {
+  key:     string;            // 'R1' | 'SW1' | ...
+  role:    'router' | 'switch';
+  model:   RouterCatalog | SwitchCatalog;
+  name:    string;
+  unit?:   number;
+  ports:   RuntimePort[];     // { label, iface, type, speed, status, cfg, msg }
+  config:  string | null;     // 投入された生のテキスト
+  parsed:  CiscoParsed | SonicWallParsed | null;
+}
+```
+
+`port.status` は `ok | err | lack | idle` のいずれか。`port.cfg` は、`mapToPorts` が正規化したインターフェイス名で
+そのポートに対応付けたパース済みインターフェイス。
+
+**Port-channel の継承（Sprint 4、S4-1）。** `interface Port-channel<N>` は物理ポートのラベルには一致しないため、
+`mapToPorts` は `channel-group <N>` を持つ物理メンバーポートへ、`Port-channel<N>` の switchport／trunk／IP 設定を複写する
+（メンバー側が自分で値を持たない項目に限る）。これが無いと、実務でよくある「L2 設定は Port-channel 側にだけ書く」構成が黙って読み捨てられていた。
+
+## 公開 API
+
+`src/engine/index.ts` から再エクスポートされる名前付きエクスポート：
+
+| 名前 | 役割 |
+|---|---|
+| `CATALOG`、`switchPorts` | 機材カタログ（15 SKU）とポート列の生成 |
+| `parseCisco(text)` | IOS／IOS-XE の running-config → `CiscoParsed` |
+| `parseSonicWall(text)` | SonicOS CLI の可読テキスト → `SonicWallParsed` |
+| `mapToPorts(device)` | `device.parsed.interfaces` を `device.ports[].cfg` に対応付ける |
+| `buildSubnets(state)` | L3 サブネット一覧を抽出 |
+| `evalFW(rparsed, sZone, dZone, sIp, dIp, svc)` | オブジェクトを解決した FW 判定 |
+| `WELL_KNOWN_SVC`、`resolveSvc`、`svcMatch`、`objContains` | FW 内部のヘルパ（直接使ってもよい） |
+| `buildMatrix(state, subnets)` | 到達性マトリクス |
+| `pathTrace(state, srcCidr, dstSpec, svc)` | SRC → … → DST のホップ列 |
+| `verify(state)` | フル検証（`{findings, subnets, matrix, cats, loop, score, nErr, nLack}`） |
+| `autoLinks(state)` | star／cascade の自動配線 |
+| `generateCiscoConfig(draft)`、`generateSonicWallConfig(draft)` | 作成モード用のジェネレータ（パーサの逆方向） |
+| `isCiscoPortConfigured(port)` | 作成モード UI 用のヘルパ |
+| `expandVlans`、`expandIfRange`、`canonIf`、`uniq` | パーサ用のヘルパ |
+| `ipToInt` / `intToIp` / `maskBits` / `bitsToMaskInt` / `subnetOf` / `inSubnet` | IPv4 のヘルパ |
+
+型も同じファイルから `export type *` で再公開する。`tsconfig` の `paths` で `@engine`／`@ui` の別名を定義している。
+
+## 指摘（Finding）の形
+
+```ts
+interface Finding {
+  cat: 'L1' | 'L2' | 'STP' | 'L3' | 'FW' | 'SEC' | 'CAP';
+  level: 'err' | 'lack' | 'ok' | 'info';
+  where: string;
+  desc: string;
+  why?: string;
+  fix?: string;
+}
+```
+
+`CAP` カテゴリは Sprint 2（機材カタログの実物化）から本格運用している。各 SKU の `capabilities`（VLAN／SVI／ACL 数の上限、
+対応する STP 方式など）とコンフィグを突合し、上限超過と非対応機能を検出する。
+
+## カタログはデータであってロジックではない
+
+`src/engine/catalog.ts` の `CATALOG` は TypeScript のリテラルで、15 SKU の代表的なポート構成に加え、Sprint 2 で追加した
+`capabilities`（L3 対応、最大 VLAN 数、PoE、STP 方式、対応 OS バージョンなど）を持つ。`verify.ts` の CAP チェックはこのデータを読む。
+
+ルータ：TZ270 / TZ370 / TZ470 / TZ570 / TZ670 / NSa2700 / NSa3700。
+スイッチ：C1000-24/48 / C2960X-24/48 / C9200-24/48 / C9300-24/48。
+
+## UI の状態管理（`src/ui/store.tsx`）
+
+reducer は1つ、Context も1つ。コンポーネントは `useApp()` フックから `state` と `dispatch` を受け取る。
+
+ウィザードの位置は `phase: PhaseId`（`mode | select | topo | upload | build | analyze | results | complete | quick | quickResults | exp`）。
+`PhaseRouter` が現在の phase に対応するコンポーネントを描画する。`quick`／`quickResults`（簡易検証、v4.19.0）と `exp`
+（`.exp` コンバート、v4.22.0）は機種選定とトポロジー指定を通らないので、6段階のステッパー（`PHASE_STEP`）には対応せず、
+ヘッダー側でステッパーを非表示にする。`exp` は検証パイプラインを一切通らない変換専用の画面で、結果は `expResults` に保持し
+（`EXP_ADD_RESULTS`／`EXP_CLEAR`）、`RESET` で破棄する。
+
+副作用（FileReader、Blob のダウンロード、`setTimeout`、`navigator.clipboard`、`window.print`）は reducer の外、
+イベントハンドラと `useEffect` で扱う。reducer が呼ぶのはエンジンの純関数だけ。
 
 ## ビルドと配布
 
 ```
 npm run build
-  → tsc -p tsconfig.json   (型チェック、emit なし)
-  → vite build              (バンドル + minify + vite-plugin-singlefile で inline 化)
-  → dist/index.html         (CSS/JS/Asset すべて inline された単一 HTML、〜330KB)
+  → tsc -p tsconfig.json   （型チェック。出力はしない）
+  → vite build              （バンドル＋minify＋vite-plugin-singlefile でインライン化）
+  → dist/index.html         （CSS / JS / アセットをすべて埋め込んだ単一 HTML、約330KB）
 ```
 
-配布物は **完全自己完結の HTML 1 ファイル**:
-- 外部 HTTP リクエストゼロ(Google Fonts CDN も撤去済、フォントはシステムフォント)
-- localStorage / sessionStorage 不使用
-- ダブルクリック起動 / GitHub Pages / Cloudflare Pages / ファイル共有、どれでも動く
+配布物は**完全に自己完結した HTML 1ファイル**：
+- 外部への HTTP リクエストはゼロ（Google Fonts は撤去済み。フォントはシステムフォント）
+- `localStorage`／`sessionStorage` は使わない
+- ダブルクリック、GitHub Pages、Cloudflare Pages、ファイル共有のどれでも動く
 
-## レンダリングと SVG
+## 描画と SVG
 
-フェイスプレートと論理接続図は手書き SVG(`src/ui/components/Faceplate.tsx` /
-`TopologyGraph.tsx`)。SVG 内 `font-family` は `Meiryo UI, sans-serif`(機器名)と
-`Consolas, monospace`(技術ラベル)。
+フェイスプレートと論理接続図は手書きの SVG（`src/ui/components/Faceplate.tsx`、`TopologyGraph.tsx`）。SVG 内の文字は、
+機器名が `Meiryo UI, sans-serif`、技術的なラベルが `Consolas, monospace`。
 
-色は次の宝石テーマ(CSS 変数 `--emerald / --garnet / --topaz / --steel / --sapphire`):
-- emerald = ok
-- garnet = err
-- topaz = lack
-- steel = idle
-- sapphire = info(将来用)
+色は宝石のテーマ（CSS 変数 `--emerald / --garnet / --topaz / --steel / --sapphire`）：emerald＝ok、garnet＝err、topaz＝lack、
+steel＝idle、sapphire＝info（将来用）。
 
 ## 経路トレースのロジック
 
-`pathTrace(state, srcCidr, dstSpec, service)`:
+`pathTrace(state, srcCidr, dstSpec, service)`：
 
-1. **送信元検証** — `srcCidr` が `buildSubnets(state)` に存在するか
-2. **同一サブネット早期 return** — 送信元と宛先が同じ CIDR なら SRC + DST だけ返す
-   (L2 で完結、ルータ・FW は通らない)
-3. **L3 経路構築** — SRC → (L2 アクセススイッチ→トランク) → GW (ルータの SVI) →
-   RT (接続済ルート or デフォルトルート WAN へ) → FW (`evalFW` 判定) →
-   (NAT、WAN 宛のみ) → DST
+1. **送信元の検証** — `srcCidr` が `buildSubnets(state)` に存在すること。
+2. **同一サブネットなら早期 return** — 送信元と宛先が同じ CIDR なら SRC と DST だけを返す（L2 で完結し、ルータも FW も通らない）。
+3. **L3 経路の構築** — SRC →（L2 アクセススイッチ → トランク）→ GW（ルータの SVI）→ RT（接続経路、または WAN へのデフォルトルート）
+   → FW（`evalFW`）→（NAT。WAN 向きのみ）→ DST。
 
-`evalFW` は service spec の双方向 overlap 判定(`svcMatch`)を経由するので、
-ルールが `svc-https` で要求が `ftp` の場合は正しく `deny` を返す
-(Sprint 1 で修正済の挙動)。
+`evalFW` はサービス仕様の双方向オーバーラップ判定（`svcMatch`）を通るので、ルールが `svc-https` で要求が `ftp` の場合は正しく `deny` を返す
+（Sprint 1 で修正済み）。
 
 ## テスト
 
 ```
-test/engine/engine.test.ts    ← エンジン本体(パーサ・verify・matrix・pathTrace 等)
-test/engine/builder.test.ts   ← 作成モード(generator の往復保証)
+test/engine/engine.test.ts    ← エンジン本体（パーサ、verify、マトリクス、pathTrace など）
+test/engine/builder.test.ts   ← 作成モード（ジェネレータの往復保証）
+test/engine/exp.test.ts       ← .exp の復号／変換／XLSX
 test/version.test.ts          ← バージョン表記の整合性
 ```
 
-3 ファイル合計 Vitest 195 ケース(2026-09-19 時点。件数は増え続けるため、正確な
-最新値は `npm test` の出力を参照)。新ルール追加 / バグ修正のたびにケース追加。
-`npm test` が緑のままを維持する。
+件数は増え続けるので、現在の数は `npm test` の出力を見ること。ルールの追加やバグ修正のたびにケースを足す。`npm test` は常に緑に保つ。
